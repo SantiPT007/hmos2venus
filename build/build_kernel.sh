@@ -22,7 +22,7 @@ mkdir -p "$K/modules"
 cp $B/Image "$K/"
 cat $B/dts/vendor/qcom/*.dtb > "$K/venus.dtb"   # every lahaina dtb: ABL picks the one matching the board id
 python3 "$REPO/build/mkdtboimg.py" "$K/dtbo.img" 4096 $B/dts/vendor/qcom/venus-sm8350-overlay.dtbo
-make $M INSTALL_MOD_PATH=out/mods INSTALL_MOD_STRIP=1 modules_install
+make $M INSTALL_MOD_PATH="$PWD/out/mods" INSTALL_MOD_STRIP=1 modules_install
 find "$K/modules" -name '*.ko' -delete
-find out/mods -name '*.ko' -exec cp {} "$K/modules/" \;
+find "$PWD/out/mods" -name '*.ko' -exec cp {} "$K/modules/" \;
 echo "kernel -> $K ($(ls "$K/modules" | wc -l) modules)"

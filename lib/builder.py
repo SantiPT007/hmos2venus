@@ -22,6 +22,8 @@ KERNEL = os.path.join(PREBUILT, "kernel-venus")
 BOOT_MODULES = ["adsp_loader_dlkm.ko", "apr_dlkm.ko", "fts_touch_spi.ko", "hwid.ko", "mmhardware_sysfs_dlkm.ko",
                 "msm_drm.ko", "q6_notifier_dlkm.ko", "q6_pdr_dlkm.ko", "qti_battery_charger_main.ko",
                 "snd_event_dlkm.ko", "xiaomi_touch.ko"]
+# legacy gadget driver: binds the USB controller on load and would take it from hdc
+SKIP_MODULES = {"g_webcam.ko"}
 # the GPT super partition of venus (BOARD_SUPER_PARTITION_SIZE)
 SUPER_SIZE = 9126805504
 INIT_CFG = "etc/init/hmos2sweet.cfg"
@@ -256,7 +258,7 @@ class Build:
         when /vendor (and its firmware) is mounted, like Android loads vendor_dlkm."""
         d = self._modules()
         first = set(module_order(d, BOOT_MODULES))
-        rest = [f for f in module_order(d, sorted(os.listdir(d))) if f not in first]
+        rest = [f for f in module_order(d, sorted(set(os.listdir(d)) - SKIP_MODULES)) if f not in first]
         self.vendor.add_dir("lib/modules", "0755")
         for f in rest:
             self.vendor.add_file(os.path.join(d, f), "lib/modules/" + f, "0644")

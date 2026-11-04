@@ -1,16 +1,15 @@
-From 889979fe33150e84af4d1c79386b3fc15512d36e Mon Sep 17 00:00:00 2001
-From: Claude <noreply@anthropic.com>
-Date: Sun, 18 Oct 2026 21:30:08 +0200
-Subject: [PATCH 04/12] ohos: emulate hmdfs/sharefs mounts for storage_daemon
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
+Date: Wed, 4 Nov 2026 09:32:16 +0000
+Subject: [PATCH 04/13] ohos: emulate hmdfs/sharefs mounts for storage_daemon 
  (OHOS_FS_EMU)
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
+Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
 ---
  arch/arm64/configs/vendor/ohos.config |  3 ++
  drivers/ohos/Kconfig                  |  7 +++
- fs/namespace.c                        | 67 +++++++++++++++++++++++++++
- 3 files changed, 77 insertions(+)
+ fs/namespace.c                        | 68 +++++++++++++++++++++++++++
+ 3 files changed, 78 insertions(+)
 
 diff --git a/arch/arm64/configs/vendor/ohos.config b/arch/arm64/configs/vendor/ohos.config
 index ba9abb166..8f7ddda9b 100644
@@ -40,10 +39,10 @@ index a77aa67e2..7c78eaa51 100644
 +
  endmenu
 diff --git a/fs/namespace.c b/fs/namespace.c
-index d772fe46e..8f2f3a0ab 100644
+index 2fd0bf91a..6e750a587 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
-@@ -3154,6 +3154,67 @@ struct dentry *mount_subtree(struct vfsmount *mnt, const char *name)
+@@ -3471,6 +3471,68 @@ struct dentry *mount_subtree(struct vfsmount *m, const char *name)
  }
  EXPORT_SYMBOL(mount_subtree);
  
@@ -88,10 +87,10 @@ index d772fe46e..8f2f3a0ab 100644
 +	if (ret)
 +		goto out;
 +	snprintf(p, PATH_MAX, "%s/device_view", dir);
-+	sys_mkdirat(AT_FDCWD, (const char __user *)p, 0711);
++	ksys_mkdir((const char __user *)p, 0711);
 +	for (i = 0; i < ARRAY_SIZE(views); i++) {
 +		snprintf(p, PATH_MAX, "%s/%s", dir, views[i]);
-+		sys_mkdirat(AT_FDCWD, (const char __user *)p, 0711);
++		ksys_mkdir((const char __user *)p, 0711);
 +		ret = do_mount(dev, (const char __user *)p, NULL, MS_BIND, NULL);
 +		if (ret) {
 +			pr_warn("ohos_fs_emu: bind %s -> %s failed %ld\n", dev, p, ret);
@@ -108,10 +107,11 @@ index d772fe46e..8f2f3a0ab 100644
 +}
 +#endif
 +
- SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
- 		char __user *, type, unsigned long, flags, void __user *, data)
++
+ int ksys_mount(const char __user *dev_name, const char __user *dir_name,
+ 	       const char __user *type, unsigned long flags, void __user *data)
  {
-@@ -3177,6 +3238,12 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
+@@ -3494,6 +3556,12 @@ int ksys_mount(const char __user *dev_name, const char __user *dir_name,
  	if (IS_ERR(options))
  		goto out_data;
  
@@ -124,6 +124,3 @@ index d772fe46e..8f2f3a0ab 100644
  	ret = do_mount(kernel_dev, dir_name, kernel_type, flags, options);
  
  	kfree(options);
--- 
-2.43.0
-

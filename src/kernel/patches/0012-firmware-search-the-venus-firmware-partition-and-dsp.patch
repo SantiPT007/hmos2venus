@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
+Date: Wed, 4 Nov 2026 09:33:00 +0000
+Subject: [PATCH 12/13] firmware: search the venus firmware partition and dsp
+
+Forward-ported from hmos2sweet 0008 (4.14 firmware_class.c) to firmware_loader/main.c on sm8350 5.4.
+---
+ drivers/base/firmware_loader/main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/base/firmware_loader/main.c b/drivers/base/firmware_loader/main.c
+index a504d50fa..e6d1fcc6e 100644
+--- a/drivers/base/firmware_loader/main.c
++++ b/drivers/base/firmware_loader/main.c
+@@ -446,6 +446,10 @@ static int fw_decompress_xz(struct device *dev, struct fw_priv *fw_priv,
+ static char fw_path_para[256];
+ static const char * const fw_path[] = {
+ 	fw_path_para,
++	/* HarmonyOS on venus: subsystem images (adsp, modem, cdsp...) from
++	 * the firmware partition, mounted by the vendor fstab */
++	"/vendor/firmware_mnt/image",
++	"/vendor/dsp",
+ 	"/lib/firmware/updates/" UTS_RELEASE,
+ 	"/lib/firmware/updates",
+ 	"/lib/firmware/" UTS_RELEASE,

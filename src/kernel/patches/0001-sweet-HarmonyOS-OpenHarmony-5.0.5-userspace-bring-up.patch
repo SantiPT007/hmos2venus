@@ -1,7 +1,7 @@
-From 8fd7e257e1c9a40d10af3624f9bb00d1f4ab6b80 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alessio Dondoni <alessio.dondoni08@gmail.com>
-Date: Sun, 18 Oct 2026 17:44:33 +0200
-Subject: [PATCH 01/12] sweet: HarmonyOS (OpenHarmony 5.0.5) userspace bring-up
+Date: Wed, 4 Nov 2026 09:31:31 +0000
+Subject: [PATCH 01/13] sweet: HarmonyOS (OpenHarmony 5.0.5) userspace bring-up
 
 - accesstokenid driver and task_struct token/ftoken (from OpenHarmony kernel_linux_5.10)
 - binder: BINDER_FEATURE_SET, BINDER_GET_ACCESS_TOKEN, BINDER_GET_SENDER_INFO
@@ -9,8 +9,8 @@ Subject: [PATCH 01/12] sweet: HarmonyOS (OpenHarmony 5.0.5) userspace bring-up
 - bring-up switches: hmos.noreboot=1 (reboot/sysrq panic), hmos.permissive=1
 - vendor/ohos.config: EROFS on, binderfs off so /dev/binder exists
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
+
+Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
 ---
  arch/arm64/configs/vendor/ohos.config  |  24 ++
  block/genhd.c                          |  20 ++
@@ -21,7 +21,8 @@ Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
  drivers/accesstokenid/access_tokenid.c | 413 +++++++++++++++++++++++++
  drivers/accesstokenid/access_tokenid.h |  73 +++++
  drivers/android/Kconfig                |   5 +
- drivers/android/binder.c               | 103 ++++++
+ drivers/android/binder.c               |  80 +++++
+ drivers/android/binder_internal.h      |  25 ++
  drivers/md/dm-ioctl.c                  |  11 +
  drivers/ohos/Kconfig                   |  22 ++
  drivers/tty/sysrq.c                    |  12 +
@@ -30,7 +31,7 @@ Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
  kernel/fork.c                          |   4 +
  kernel/reboot.c                        |  24 ++
  security/selinux/selinuxfs.c           |  19 ++
- 18 files changed, 766 insertions(+)
+ 19 files changed, 768 insertions(+)
  create mode 100644 arch/arm64/configs/vendor/ohos.config
  create mode 100644 drivers/accesstokenid/Kconfig
  create mode 100644 drivers/accesstokenid/Makefile
@@ -69,10 +70,10 @@ index 000000000..f3e850843
 +# CONFIG_ANDROID_BINDERFS is not set
 +CONFIG_ANDROID_BINDER_DEVICES="binder,hwbinder,vndbinder"
 diff --git a/block/genhd.c b/block/genhd.c
-index 759fff68d..bb835f271 100644
+index 2f6f341a8..437d4662a 100644
 --- a/block/genhd.c
 +++ b/block/genhd.c
-@@ -1249,11 +1249,31 @@ static char *block_devnode(struct device *dev, umode_t *mode,
+@@ -1348,11 +1348,31 @@ static char *block_devnode(struct device *dev, umode_t *mode,
  	return NULL;
  }
  
@@ -105,10 +106,10 @@ index 759fff68d..bb835f271 100644
  
  #ifdef CONFIG_PROC_FS
 diff --git a/drivers/Kconfig b/drivers/Kconfig
-index 43377a3ac..56f9b4813 100644
+index 7e846235c..0bc9716f4 100644
 --- a/drivers/Kconfig
 +++ b/drivers/Kconfig
-@@ -201,6 +201,10 @@ source "drivers/thunderbolt/Kconfig"
+@@ -200,6 +200,10 @@ source "drivers/thunderbolt/Kconfig"
  
  source "drivers/android/Kconfig"
  
@@ -120,10 +121,10 @@ index 43377a3ac..56f9b4813 100644
  
  source "drivers/nvdimm/Kconfig"
 diff --git a/drivers/Makefile b/drivers/Makefile
-index 4a067525b..ffaec4b8c 100644
+index 6d3289517..8dce258ef 100644
 --- a/drivers/Makefile
 +++ b/drivers/Makefile
-@@ -181,6 +181,7 @@ obj-$(CONFIG_CORESIGHT)		+= hwtracing/coresight/
+@@ -176,6 +176,7 @@ obj-$(CONFIG_CORESIGHT)		+= hwtracing/coresight/
  obj-y				+= hwtracing/intel_th/
  obj-$(CONFIG_STM)		+= hwtracing/stm/
  obj-$(CONFIG_ANDROID)		+= android/
@@ -649,12 +650,12 @@ index 000000000..7eb3119ef
 +
 +#endif /* _ACCESS_TOKEN_ID_H */
 diff --git a/drivers/android/Kconfig b/drivers/android/Kconfig
-index 3a90d51d8..e42ace144 100644
+index 392564cfe..af42360bf 100644
 --- a/drivers/android/Kconfig
 +++ b/drivers/android/Kconfig
-@@ -54,6 +54,11 @@ config ANDROID_BINDER_IPC_SELFTEST
- 	  exhaustively with combinations of various buffer sizes and
- 	  alignments.
+@@ -63,6 +63,11 @@ config ANDROID_VENDOR_HOOKS
+ 	  Allow vendor modules to attach to tracepoint "hooks" defined via
+ 	  DECLARE_HOOK or DECLARE_RESTRICTED_HOOK.
  
 +config BINDER_SENDER_INFO
 +	bool "OpenHarmony: binder sender info ioctl"
@@ -665,49 +666,10 @@ index 3a90d51d8..e42ace144 100644
  
  endmenu
 diff --git a/drivers/android/binder.c b/drivers/android/binder.c
-index 2232af61e..009e7848d 100644
+index e535336c4..f00451d20 100644
 --- a/drivers/android/binder.c
 +++ b/drivers/android/binder.c
-@@ -615,8 +615,27 @@ struct binder_thread {
- 	atomic_t tmp_ref;
- 	bool is_dead;
- 	struct task_struct *task;
-+#ifdef CONFIG_ACCESS_TOKENID
-+	struct access_token tokens;
-+#endif
-+#ifdef CONFIG_BINDER_SENDER_INFO
-+	__u64 sender_pid_nr;
-+#endif
- };
- 
-+#ifdef CONFIG_ACCESS_TOKENID
-+#define ENABLE_ACCESS_TOKENID 1
-+#else
-+#define ENABLE_ACCESS_TOKENID 0
-+#endif
-+#ifdef CONFIG_BINDER_SENDER_INFO
-+#define ENABLE_BINDER_SENDER_INFO 1
-+#else
-+#define ENABLE_BINDER_SENDER_INFO 0
-+#endif
-+#define BINDER_CURRENT_FEATURE_SET \
-+	((ENABLE_ACCESS_TOKENID << 0) | (ENABLE_BINDER_SENDER_INFO << 2))
-+
- struct binder_transaction {
- 	int debug_id;
- 	struct binder_work work;
-@@ -643,6 +662,10 @@ struct binder_transaction {
- 	 * during thread teardown
- 	 */
- 	spinlock_t lock;
-+#ifdef CONFIG_ACCESS_TOKENID
-+	u64 sender_tokenid;
-+	u64 first_tokenid;
-+#endif
- };
- 
- /**
-@@ -3401,6 +3424,10 @@ static void binder_transaction(struct binder_proc *proc,
+@@ -3273,6 +3273,10 @@ static void binder_transaction(struct binder_proc *proc,
  	else
  		t->from = NULL;
  	t->sender_euid = task_euid(proc->tsk);
@@ -718,7 +680,7 @@ index 2232af61e..009e7848d 100644
  	t->to_proc = target_proc;
  	t->to_thread = target_thread;
  	t->code = tr->code;
-@@ -4676,8 +4703,18 @@ static int binder_thread_read(struct binder_proc *proc,
+@@ -4961,8 +4965,18 @@ static int binder_thread_read(struct binder_proc *proc,
  			trd->sender_pid =
  				task_tgid_nr_ns(sender,
  						task_active_pid_ns(current));
@@ -736,8 +698,8 @@ index 2232af61e..009e7848d 100644
 +#endif
  		}
  
- 		trd->data_size = t->buffer->data_size;
-@@ -4730,6 +4767,12 @@ static int binder_thread_read(struct binder_proc *proc,
+ 		ret = binder_apply_fd_fixups(proc, t);
+@@ -5048,6 +5062,12 @@ static int binder_thread_read(struct binder_proc *proc,
  		if (t_from)
  			binder_thread_dec_tmpref(t_from);
  		t->buffer->allow_user_free = 1;
@@ -750,7 +712,7 @@ index 2232af61e..009e7848d 100644
  		if (cmd != BR_REPLY && !(t->flags & TF_ONE_WAY)) {
  			binder_inner_proc_lock(thread->proc);
  			t->to_parent = thread->transaction_stack;
-@@ -5373,6 +5416,66 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+@@ -5766,6 +5786,66 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  		}
  		break;
  	}
@@ -817,11 +779,63 @@ index 2232af61e..009e7848d 100644
  	case BINDER_GET_NODE_INFO_FOR_REF: {
  		struct binder_node_info_for_ref info;
  
+diff --git a/drivers/android/binder_internal.h b/drivers/android/binder_internal.h
+index 008f9adbd..b3003d48e 100644
+--- a/drivers/android/binder_internal.h
++++ b/drivers/android/binder_internal.h
+@@ -12,6 +12,7 @@
+ #include <linux/stddef.h>
+ #include <linux/types.h>
+ #include <linux/uidgid.h>
++#include <uapi/linux/android/binder.h>
+ #include <uapi/linux/android/binderfs.h>
+ #include "binder_alloc.h"
+ 
+@@ -595,8 +596,28 @@ struct binder_thread {
+ 	spinlock_t prio_lock;
+ 	struct binder_priority prio_next;
+ 	enum binder_prio_state prio_state;
++#ifdef CONFIG_ACCESS_TOKENID
++	struct access_token tokens;
++#endif
++#ifdef CONFIG_BINDER_SENDER_INFO
++	__u64 sender_pid_nr;
++#endif
+ };
+ 
++#ifdef CONFIG_ACCESS_TOKENID
++#define ENABLE_ACCESS_TOKENID 1
++#else
++#define ENABLE_ACCESS_TOKENID 0
++#endif
++#ifdef CONFIG_BINDER_SENDER_INFO
++#define ENABLE_BINDER_SENDER_INFO 1
++#else
++#define ENABLE_BINDER_SENDER_INFO 0
++#endif
++#define BINDER_CURRENT_FEATURE_SET \
++	((ENABLE_ACCESS_TOKENID << 0) | (ENABLE_BINDER_SENDER_INFO << 2))
++
++
+ /**
+  * struct binder_txn_fd_fixup - transaction fd fixup list element
+  * @fixup_entry:          list entry
+@@ -642,6 +663,10 @@ struct binder_transaction {
+ 	 * during thread teardown
+ 	 */
+ 	spinlock_t lock;
++#ifdef CONFIG_ACCESS_TOKENID
++	u64 sender_tokenid;
++	u64 first_tokenid;
++#endif
+ 	ANDROID_VENDOR_DATA(1);
+ };
+ 
 diff --git a/drivers/md/dm-ioctl.c b/drivers/md/dm-ioctl.c
-index 5dedb92a1..ce6bb1d46 100644
+index 83727fa05..0996a3ecf 100644
 --- a/drivers/md/dm-ioctl.c
 +++ b/drivers/md/dm-ioctl.c
-@@ -2054,6 +2054,17 @@ int dm_ioctl_export(struct mapped_device *md, const char *name,
+@@ -2042,6 +2042,17 @@ void dm_interface_exit(void)
   * @name: Buffer (size DM_NAME_LEN) for name
   * @uuid: Buffer (size DM_UUID_LEN) for uuid or empty string if uuid not defined
   */
@@ -868,10 +882,10 @@ index 000000000..721a15967
 +
 +endmenu
 diff --git a/drivers/tty/sysrq.c b/drivers/tty/sysrq.c
-index ba64768f5..0fbbb2cdb 100644
+index 0329f5ec0..823ffcba5 100644
 --- a/drivers/tty/sysrq.c
 +++ b/drivers/tty/sysrq.c
-@@ -1097,6 +1097,18 @@ static ssize_t write_sysrq_trigger(struct file *file, const char __user *buf,
+@@ -1106,6 +1106,18 @@ static ssize_t write_sysrq_trigger(struct file *file, const char __user *buf,
  
  		if (get_user(c, buf))
  			return -EFAULT;
@@ -891,10 +905,10 @@ index ba64768f5..0fbbb2cdb 100644
  	}
  
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 24ef41cf0..0b5eee762 100644
+index eb066485d..41d426091 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -1377,6 +1377,10 @@ struct task_struct {
+@@ -1487,6 +1487,10 @@ struct task_struct {
  	 * New fields for task_struct should be added above here, so that
  	 * they are included in the randomized portion of task_struct.
  	 */
@@ -906,10 +920,10 @@ index 24ef41cf0..0b5eee762 100644
  
  	/* CPU-specific state of this task: */
 diff --git a/include/uapi/linux/android/binder.h b/include/uapi/linux/android/binder.h
-index 74e697405..9cf920cd7 100644
+index d59a424b7..1546b7b9f 100644
 --- a/include/uapi/linux/android/binder.h
 +++ b/include/uapi/linux/android/binder.h
-@@ -295,6 +295,26 @@ struct binder_frozen_status_info {
+@@ -300,6 +300,26 @@ struct binder_frozen_state_info {
  #define BINDER_GET_NODE_DEBUG_INFO	_IOWR('b', 11, struct binder_node_debug_info)
  #define BINDER_GET_NODE_INFO_FOR_REF	_IOWR('b', 12, struct binder_node_info_for_ref)
  #define BINDER_SET_CONTEXT_MGR_EXT	_IOW('b', 13, struct flat_binder_object)
@@ -937,10 +951,10 @@ index 74e697405..9cf920cd7 100644
  #define BINDER_GET_FROZEN_INFO		_IOWR('b', 15, struct binder_frozen_status_info)
  #define BINDER_ENABLE_ONEWAY_SPAM_DETECTION	_IOW('b', 16, __u32)
 diff --git a/kernel/fork.c b/kernel/fork.c
-index e21a10462..070da4504 100644
+index 68b18c603..67deeac9d 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -584,6 +584,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+@@ -958,6 +958,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
  	tsk->task_frag.page = NULL;
  	tsk->wake_q.next = NULL;
  
@@ -952,10 +966,10 @@ index e21a10462..070da4504 100644
  
  	kcov_task_init(tsk);
 diff --git a/kernel/reboot.c b/kernel/reboot.c
-index 2946ed1d9..32091c81a 100644
+index 790c2f514..a8783dd1b 100644
 --- a/kernel/reboot.c
 +++ b/kernel/reboot.c
-@@ -277,6 +277,22 @@ static DEFINE_MUTEX(reboot_mutex);
+@@ -310,6 +310,22 @@ DEFINE_MUTEX(system_transition_mutex);
   *
   * reboot doesn't sync: do that yourself before calling this.
   */
@@ -978,7 +992,7 @@ index 2946ed1d9..32091c81a 100644
  SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
  		void __user *, arg)
  {
-@@ -343,6 +359,14 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+@@ -376,6 +392,14 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
  		}
  		buffer[sizeof(buffer) - 1] = '\0';
  
@@ -994,10 +1008,10 @@ index 2946ed1d9..32091c81a 100644
  		break;
  
 diff --git a/security/selinux/selinuxfs.c b/security/selinux/selinuxfs.c
-index 0eeadfe8b..6c1909324 100644
+index ee2bcca11..7181543c8 100644
 --- a/security/selinux/selinuxfs.c
 +++ b/security/selinux/selinuxfs.c
-@@ -132,6 +132,18 @@ static ssize_t sel_read_enforce(struct file *filp, char __user *buf,
+@@ -131,6 +131,18 @@ static ssize_t sel_read_enforce(struct file *filp, char __user *buf,
  }
  
  #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
@@ -1016,7 +1030,7 @@ index 0eeadfe8b..6c1909324 100644
  static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
  				 size_t count, loff_t *ppos)
  
-@@ -158,6 +170,13 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
+@@ -157,6 +169,13 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
  		goto out;
  
  	new_value = !!new_value;
@@ -1030,6 +1044,3 @@ index 0eeadfe8b..6c1909324 100644
  
  	old_value = enforcing_enabled(state);
  	if (new_value != old_value) {
--- 
-2.43.0
-

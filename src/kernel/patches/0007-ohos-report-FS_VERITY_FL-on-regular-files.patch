@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
+Date: Wed, 4 Nov 2026 09:32:17 +0000
+Subject: [PATCH 07/13] ohos: report FS_VERITY_FL on regular files 
+ (OHOS_FSVERITY_STUB)
+
+Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
+---
+ fs/ioctl.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/fs/ioctl.c b/fs/ioctl.c
+index 2b6114981..91b1ed259 100644
+--- a/fs/ioctl.c
++++ b/fs/ioctl.c
+@@ -650,6 +650,17 @@ int do_vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd,
+ 	if (_IOC_TYPE(cmd) == 'f' && _IOC_DIR(cmd) == _IOC_WRITE &&
+ 	    (_IOC_NR(cmd) == 133 || _IOC_NR(cmd) == 200) && S_ISREG(inode->i_mode))
+ 		return 0;
++	/* ...and report every regular file as verity-enabled (FS_VERITY_FL),
++	 * which is what installd checks after enabling */
++	if (cmd == FS_IOC_GETFLAGS && S_ISREG(inode->i_mode)) {
++		unsigned int flags;
++
++		error = vfs_ioctl(filp, cmd, arg);
++		if (!error && !get_user(flags, (unsigned int __user *)argp))
++			error = put_user(flags | 0x00100000 /* FS_VERITY_FL */,
++					 (unsigned int __user *)argp);
++		return error;
++	}
+ #endif
+ 
+ 	switch (cmd) {

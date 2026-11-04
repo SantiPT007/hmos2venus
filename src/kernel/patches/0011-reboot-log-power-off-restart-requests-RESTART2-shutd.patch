@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
+Date: Wed, 4 Nov 2026 09:32:40 +0000
+Subject: [PATCH 11/13] reboot: log power off/restart requests,
+ RESTART2("shutdown")  powers off
+
+Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
+---
+ kernel/reboot.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index ef0bf17c3..0a913046a 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -380,6 +380,7 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 		panic("cannot halt");
+ 
+ 	case LINUX_REBOOT_CMD_POWER_OFF:
++		pr_emerg("hmos: power off requested by %s[%d]\n", current->comm, task_pid_nr(current));
+ 		kernel_power_off();
+ 		do_exit(0);
+ 		break;
+@@ -400,6 +401,13 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 			break;
+ 		}
+ #endif
++		pr_emerg("hmos: reboot(\"%s\") requested by %s[%d]\n", buffer, current->comm,
++			 task_pid_nr(current));
++		/* HarmonyOS asks for "shutdown"/"poweroff" through RESTART2 on some paths */
++		if (!strncmp(buffer, "shutdown", 8) || !strncmp(buffer, "poweroff", 8)) {
++			kernel_power_off();
++			do_exit(0);
++		}
+ 		kernel_restart(buffer);
+ 		break;
+ 
