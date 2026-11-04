@@ -1002,6 +1002,45 @@ static void charger_mode(void)
  * loaded by init from /vendor/lib/modules once /vendor is mounted.
  */
 /*
+ * Early log: the persistent logger starts only after the modules are loaded,
+ * so a module that hangs in finit_module left no trace. This child dumps the
+ * whole kernel log to userdata:/hmos/early.log every 5 s until it is stopped.
+ */
+static pid_t early_log_start(void)
+{
+	pid_t pid = fork();
+	if (pid != 0)
+		return pid;
+	char dev[64];
+	static char buf[1 << 20];
+	for (int round = 0; round < 120; round++) {
+		sleep(5);
+		if (find_part("userdata", dev, sizeof(dev)))
+			continue;
+		mkdir("/early", 0700);
+		if (mount(dev, "/early", "f2fs", MS_NOATIME | MS_NOSUID | MS_NODEV, NULL))
+			continue;
+		mkdir("/early/hmos", 0700);
+		int out = open("/early/hmos/early.log", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+		int k = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+		if (out >= 0 && k >= 0) {
+			dprintf(out, "=== early log round %d ===\n", round);
+			ssize_t n;
+			while ((n = read(k, buf, sizeof(buf) - 1)) > 0 || (n < 0 && errno == EPIPE))
+				if (n > 0)
+					write(out, buf, n);
+			fsync(out);
+		}
+		if (k >= 0)
+			close(k);
+		if (out >= 0)
+			close(out);
+		umount("/early");
+	}
+	_exit(0);
+}
+
+/*
  * The kernel does not hand "module.param=value" from the command line to
  * loadable modules: Android's modprobe passes them at load time, so do the
  * same (msm_drm.dsi_display0 is how the ABL tells the display driver which
@@ -1056,8 +1095,7 @@ static void load_modules(void)
 			continue;
 		snprintf(path, sizeof(path), "/lib/modules/%s", name);
 		cmdline_params(cmdline, name, opts, sizeof(opts));
-		if (opts[0])
-			klog("module %s: %s", name, opts);
+		klog("loading %s %s", name, opts);
 		int fd = open(path, O_RDONLY | O_CLOEXEC);
 		if (fd < 0 || syscall(SYS_finit_module, fd, opts, 0)) {
 			if (errno != EEXIST) {
@@ -1086,7 +1124,13 @@ int main(int argc, char **argv)
 	kfd = open("/dev/kmsg", O_WRONLY | O_CLOEXEC);
 	klog("starting (HarmonyOS userspace on venus, stage 1)");
 
+	pid_t early = early_log_start();
 	load_modules();
+	if (early > 0) {
+		kill(early, SIGKILL);
+		waitpid(early, NULL, 0);
+		umount2("/early", MNT_DETACH);
+	}
 
 	/* devtmpfs needs a moment for UFS partitions on some boots */
 	char tmp[64];

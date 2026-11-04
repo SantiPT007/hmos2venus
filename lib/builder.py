@@ -5,7 +5,7 @@ import os
 import shutil
 
 from . import bootimg, erofs, lpimg, sweetrom
-from .util import REPO, step, info, warn, die, mkdirs, rmtree, human, run, tool
+from .util import REPO, step, info, warn, die, mkdirs, rmtree, human
 
 PREBUILT = os.path.join(REPO, "prebuilt")
 SUPER_PARTS = ["system", "vendor", "chip_prod", "sys_prod", "cust", "patch", "version", "preload"]
@@ -18,10 +18,12 @@ VENDOR_CMDLINE = ("androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.slee
                   "cgroup.memory=nokmem,nosocket pcie_ports=compat iptable_raw.raw_before_defrag=1 "
                   "ip6table_raw.raw_before_defrag=1")
 KERNEL = os.path.join(PREBUILT, "kernel-venus")
-# first-stage modules (LineageOS venus BOOT_KERNEL_MODULES): loaded by hmos-preinit from the vendor ramdisk
-BOOT_MODULES = ["adsp_loader_dlkm.ko", "apr_dlkm.ko", "fts_touch_spi.ko", "hwid.ko", "mmhardware_sysfs_dlkm.ko",
+# first-stage modules (LineageOS venus BOOT_KERNEL_MODULES minus touch): loaded by hmos-preinit from the vendor
+# ramdisk. Touch (fts_touch_spi, xiaomi_touch) is second stage: it asks for st_fts_k2.ftb from /vendor/firmware at
+# probe time and, with /vendor not mounted yet, held preinit for 2 x 60 s of firmware fallback.
+BOOT_MODULES = ["adsp_loader_dlkm.ko", "apr_dlkm.ko", "hwid.ko", "mmhardware_sysfs_dlkm.ko",
                 "msm_drm.ko", "q6_notifier_dlkm.ko", "q6_pdr_dlkm.ko", "qti_battery_charger_main.ko",
-                "snd_event_dlkm.ko", "xiaomi_touch.ko"]
+                "snd_event_dlkm.ko"]
 # legacy gadget driver: binds the USB controller on load and would take it from hdc
 SKIP_MODULES = {"g_webcam.ko"}
 # the GPT super partition of venus (BOARD_SUPER_PARTITION_SIZE)
@@ -282,12 +284,19 @@ class Build:
         parts = [(n, os.path.join(self.out, n + ".img"), True) for n in SUPER_PARTS
                  if os.path.isfile(os.path.join(self.out, n + ".img"))]
         raw = os.path.join(self.work, "super.raw")
-        lpimg.build(raw, SUPER_SIZE, parts)
-        run([tool("img2simg"), raw, os.path.join(self.out, "super.img")])
+        layout = lpimg.build(raw, SUPER_SIZE, parts)
+        # LP metadata + every partition extent, written explicitly (zeros too) so no old data shows through
+        ranges = [(0, layout[0][2] * lpimg.SECTOR)] + [(first * lpimg.SECTOR, count * lpimg.SECTOR)
+                                                       for _, _, first, count in layout]
+        for f in os.listdir(self.out):
+            if f.startswith("super.img"):
+                os.unlink(os.path.join(self.out, f))
+        pieces = lpimg.sparse_pieces(raw, ranges, os.path.join(self.out, "super.img"))
         os.unlink(raw)
         for n, path, _ in parts:
             os.unlink(path)
-        info("super.img %s (sparse)" % human(os.path.getsize(os.path.join(self.out, "super.img"))))
+        info("super.img.0..%d (%s, sparse pieces flashed one after the other)" % (
+            len(pieces) - 1, human(sum(os.path.getsize(p) for p in pieces))))
 
     # ------------------------------------------------------------ others
     def copy_untouched(self):
