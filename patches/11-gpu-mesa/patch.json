@@ -1,10 +1,10 @@
 {
-  "name": "GPU: Mesa freedreno (Adreno 618) for OpenGL ES",
+  "name": "GPU: Mesa freedreno (Adreno 660) for OpenGL ES",
   "default": true,
   "requires": [
     "10-display"
   ],
-  "description": "Mesa 26 (freedreno on kgsl) as the system EGL/GLES driver instead of Huawei's Maleoon driver, Adreno firmware from the sweet ROM, Vulkan ICD removed so render_service stays on GLES.",
+  "description": "Mesa 26 (freedreno on kgsl) as the system EGL/GLES driver instead of Huawei's Maleoon driver, Adreno 660 firmware from the venus ROM, Vulkan ICD removed so render_service stays on GLES.",
   "vendor_files": [
     {
       "src": "files/lib64/chipsetsdk/libEGL_impl.so",
@@ -41,36 +41,36 @@
   ],
   "sweet_blobs": [
     {
-      "from": "firmware/a630_sqe.fw",
-      "to": "firmware/a630_sqe.fw"
+      "from": "firmware/a660_sqe.fw",
+      "to": "firmware/a660_sqe.fw"
     },
     {
-      "from": "firmware/a618_gmu.bin",
-      "to": "firmware/a618_gmu.bin"
+      "from": "firmware/a660_gmu.bin",
+      "to": "firmware/a660_gmu.bin"
     },
     {
-      "from": "firmware/a615_zap.mdt",
-      "to": "firmware/a615_zap.mdt"
+      "from": "firmware/a660_zap.mdt",
+      "to": "firmware/a660_zap.mdt"
     },
     {
-      "from": "firmware/a615_zap.b00",
-      "to": "firmware/a615_zap.b00"
+      "from": "firmware/a660_zap.b00",
+      "to": "firmware/a660_zap.b00"
     },
     {
-      "from": "firmware/a615_zap.b01",
-      "to": "firmware/a615_zap.b01"
+      "from": "firmware/a660_zap.b01",
+      "to": "firmware/a660_zap.b01"
     },
     {
-      "from": "firmware/a615_zap.b02",
-      "to": "firmware/a615_zap.b02"
+      "from": "firmware/a660_zap.b02",
+      "to": "firmware/a660_zap.b02"
     },
     {
-      "from": "firmware/a615_zap.elf",
-      "to": "firmware/a615_zap.elf"
+      "from": "firmware/a660_zap.elf",
+      "to": "firmware/a660_zap.elf"
     }
   ],
   "ueventd": [
-    "# hmos2sweet: Adreno 618 (kgsl) + ion for Mesa freedreno",
+    "# hmos2venus: Adreno 660 (kgsl) + ion for Mesa freedreno",
     "/dev/kgsl-3d0 0666 0 1003",
     "/dev/ion 0666 0 1003"
   ],

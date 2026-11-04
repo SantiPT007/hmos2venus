@@ -1,7 +1,7 @@
 {
   "name": "USB: hdc and file transfer",
   "default": true,
-  "description": "HarmonyOS looks for /vendor/etc/init.<hardware>.usb.cfg, and the OTA only has the Kirin one, so the USB gadget was never set up. This writes init.sweet.usb.cfg from the OTA's file with the Snapdragon controller (a600000.dwc3): hdc (HarmonyOS debug bridge, after enabling developer options and USB debugging) and the other USB modes work.",
+  "description": "HarmonyOS looks for /vendor/etc/init.<hardware>.usb.cfg, and the OTA only has the Kirin one, so the USB gadget was never set up. This writes init.venus.usb.cfg from the OTA's file with the Snapdragon controller (a600000.dwc3): hdc (HarmonyOS debug bridge, after enabling developer options and USB debugging) and the other USB modes work.",
   "hook": "hook.py",
   "requires": []
 }
