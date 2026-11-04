@@ -1,7 +1,7 @@
 {
   "name": "Vibration motor",
-  "default": true,
-  "description": "aw8624 haptic driver firmware from the sweet ROM; the kernel also exposes the motor as /sys/class/leds/vibrator, which the vibrator HDI uses for timed vibrations (ringtone, notifications, touch feedback).",
+  "default": false,
+  "description": "NOT PORTED TO VENUS YET: sweet's aw8624 firmware; venus has an aw8697. aw8624 haptic driver firmware from the sweet ROM; the kernel also exposes the motor as /sys/class/leds/vibrator, which the vibrator HDI uses for timed vibrations (ringtone, notifications, touch feedback).",
   "sweet_blobs": [
     {
       "from": "firmware/aw8624_haptic.bin",

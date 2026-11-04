@@ -1,7 +1,7 @@
 {
-  "name": "Thermal: real sweet sensors, sane policy",
+  "name": "Thermal: real venus sensors, sane policy",
   "default": true,
-  "description": "Huawei's thermal setup reads simulated Kirin nodes and ships a test policy that would shut the phone down at 34 C on real sensors. The thermal HDI now reads the sm6150 thermal zones (CPU, GPU, battery, skin, USB connector, PA) and the thermal service gets a policy for sweet: thermal level reporting, screen dimming and background trimming when the back gets hot, shutdown only above 60 C battery / 115 C SoC. CPU/GPU throttling stays with the kernel.",
+  "description": "Huawei's thermal setup reads simulated Kirin nodes and ships a test policy that would shut the phone down at 34 C on real sensors. The thermal HDI now reads the sm8350 thermal zones (CPU, GPU, battery, quiet/xo skin, USB connector, PA) and the thermal service gets a policy for the phone (written for sweet, same thresholds): thermal level reporting, screen dimming and background trimming when the back gets hot, shutdown only above 60 C battery / 115 C SoC. CPU/GPU throttling stays with the kernel.",
   "vendor_files": [
     {
       "src": "files/etc/thermal_config/thermal_hdi_config.xml",

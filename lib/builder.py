@@ -254,15 +254,15 @@ class Build:
         return d
 
     def _add_modules(self, init):
-        """The second-stage modules go to /vendor/lib/modules; init loads them in dependency order in pre-init,
-        when /vendor (and its firmware) is mounted, like Android loads vendor_dlkm."""
+        """The second-stage modules go to /vendor/lib/modules; init loads them in dependency order at the end of
+        pre-init, after the patches mounted the firmware partitions (QCA6390 takes amss.bin/bdwlan from modem_a)."""
         d = self._modules()
         first = set(module_order(d, BOOT_MODULES))
         rest = [f for f in module_order(d, sorted(set(os.listdir(d)) - SKIP_MODULES)) if f not in first]
         self.vendor.add_dir("lib/modules", "0755")
         for f in rest:
             self.vendor.add_file(os.path.join(d, f), "lib/modules/" + f, "0644")
-        init["jobs"].insert(0, {"name": "pre-init", "cmds": ["insmod /vendor/lib/modules/" + f for f in rest]})
+        init["jobs"].append({"name": "pre-init", "cmds": ["insmod /vendor/lib/modules/" + f for f in rest]})
         info("%d kernel modules in /vendor/lib/modules" % len(rest))
 
     def build_boot(self):

@@ -1,10 +1,10 @@
 {
   "name": "Audio: speakers, earpiece, headphones, microphone",
-  "default": true,
+  "default": false,
   "requires": [
     "30-remoteproc"
   ],
-  "description": "tinyalsa-based audio HAL (OpenHarmony VDI) for the sm6150 sound card and the two Awinic speaker amplifiers, using the sweet mixer paths. The audio policy is trimmed to what the hardware can do (no MMAP/offload/hotword pipes). Use it together with 'ADSP sensors domain', otherwise the DSP restarts every ~40 s.",
+  "description": "NOT PORTED TO VENUS YET: the VDI and its mixer paths are sweet's (awinic amps); venus has cs35l41 amps and a wcd938x codec. tinyalsa-based audio HAL (OpenHarmony VDI) for the sm6150 sound card and the two Awinic speaker amplifiers, using the sweet mixer paths. The audio policy is trimmed to what the hardware can do (no MMAP/offload/hotword pipes). Use it together with 'ADSP sensors domain', otherwise the DSP restarts every ~40 s.",
   "vendor_files": [
     {
       "src": "files/lib64/libaudio_primary_impl.z.so",

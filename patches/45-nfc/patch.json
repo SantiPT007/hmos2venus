@@ -1,7 +1,7 @@
 {
   "name": "NFC (NXP PN553 through Huawei's NXP HAL)",
-  "default": true,
-  "description": "sweet's NFC controller (NXP PN553, Qualcomm nq-nci driver, /dev/nq-nci) is driven by the HarmonyOS NFC stack through Huawei's own NXP HAL (libnfc_hal_impl_t001) and NCI stack (libnfc_nci_t001). The kernel provides the /sys/nfc attributes those read (chip type 'sn110u' selects the NXP libraries, device node, configuration names); the sn110 configuration files in chip_prod are replaced by sweet's PN553 one at boot, and the NFC firmware library is hidden so that the HAL never tries to flash SN110 firmware into the PN553.",
+  "default": false,
+  "description": "NOT PORTED TO VENUS YET: needs the /sys/nfc kernel attributes (sweet kernel patch 0017, not carried over) and venus's NXP configuration. sweet's NFC controller (NXP PN553, Qualcomm nq-nci driver, /dev/nq-nci) is driven by the HarmonyOS NFC stack through Huawei's own NXP HAL (libnfc_hal_impl_t001) and NCI stack (libnfc_nci_t001). The kernel provides the /sys/nfc attributes those read (chip type 'sn110u' selects the NXP libraries, device node, configuration names); the sn110 configuration files in chip_prod are replaced by sweet's PN553 one at boot, and the NFC firmware library is hidden so that the HAL never tries to flash SN110 firmware into the PN553.",
   "vendor_files": [
     {
       "src": "files/etc/sweet/nfc/libnfc-nxp-sweet.conf",

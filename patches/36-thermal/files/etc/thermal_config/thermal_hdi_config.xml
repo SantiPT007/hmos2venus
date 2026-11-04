@@ -22,10 +22,10 @@
             <thermal_zone type="cpu-1-0-usr" replace="cpu"/>
             <thermal_zone type="gpuss-0-usr" replace="gpu"/>
             <thermal_zone type="battery" replace="battery"/>
-            <thermal_zone type="quiet-therm-adc" replace="shell"/>
-            <thermal_zone type="xo-therm-adc" replace="ambient"/>
-            <thermal_zone type="conn-therm-adc" replace="charger"/>
-            <thermal_zone type="rf-pa0-therm-adc" replace="pa"/>
+            <thermal_zone type="quiet_therm" replace="shell"/>
+            <thermal_zone type="xo_therm" replace="ambient"/>
+            <thermal_zone type="conn_therm" replace="charger"/>
+            <thermal_zone type="pa_therm0" replace="pa"/>
             <thermal_zone type="cpuss-1-usr" replace="ap"/>
         </group>
     </polling>

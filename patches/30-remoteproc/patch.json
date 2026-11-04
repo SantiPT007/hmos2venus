@@ -83,7 +83,7 @@
       {
         "name": "pre-init",
         "cmds": [
-          "mount vfat /dev/block/by-name/modem /vendor/firmware_mnt ro nosuid nodev shortname=lower,uid=0,gid=1000,dmask=0222,fmask=0333",
+          "mount vfat /dev/block/by-name/modem_a /vendor/firmware_mnt ro nosuid nodev shortname=lower,uid=0,gid=1000,dmask=0222,fmask=0333",
           "mount ext4 /dev/block/by-name/persist /vendor/persist nosuid nodev noatime"
         ]
       },

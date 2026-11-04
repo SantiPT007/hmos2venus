@@ -1,10 +1,10 @@
 {
-  "name": "WiFi (WCN3990 through the modem) - EXPERIMENTAL",
+  "name": "WiFi (QCA6390 on PCIe, cnss2) - EXPERIMENTAL",
   "default": true,
   "requires": [
     "30-remoteproc"
   ],
-  "description": "Boots the modem (it runs the WLAN firmware), the kernel sends it the board data file (bdwlan) like Android's cnss-daemon did, and the qcacld host driver creates wlan0, which HarmonyOS's WiFi HDI uses directly. The MAC address comes from the persist partition. EXPERIMENTAL: keep 'Remove setup wizard' on until WiFi is confirmed working.",
+  "description": "QCA6390 on PCIe: the cnss2 + qcacld (wlan.ko) host driver downloads amss.bin, m3.bin and the board data (bdwlan) from the modem partition (mounted in pre-init before the modules load) and creates wlan0, which HarmonyOS's WiFi HDI uses directly. EXPERIMENTAL: keep 'Remove setup wizard' on until WiFi is confirmed working.",
   "sweet_blobs": [
     {
       "from": "firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini",

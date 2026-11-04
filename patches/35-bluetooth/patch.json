@@ -1,10 +1,10 @@
 {
   "name": "Bluetooth (WCN3990) - EXPERIMENTAL",
-  "default": true,
+  "default": false,
   "requires": [
     "30-remoteproc"
   ],
-  "description": "Vendor library for the HarmonyOS Bluetooth HCI service: powers the WCN3990 through btpower, loads its ROM patch and NVM from the bluetooth partition and hands /dev/ttyHS0 (3 Mbaud H4) to the stack.",
+  "description": "NOT PORTED TO VENUS YET: the vendor library loads WCN3990 firmware (crbtfw/crnv); venus has a QCA6390 (hpbtfw10.tlv/hpnv10 on bluetooth_a). Vendor library for the HarmonyOS Bluetooth HCI service: powers the WCN3990 through btpower, loads its ROM patch and NVM from the bluetooth partition and hands /dev/ttyHS0 (3 Mbaud H4) to the stack.",
   "vendor_files": [
     {
       "src": "files/lib64/libbt_vendor.z.so",
@@ -31,7 +31,7 @@
       {
         "name": "pre-init",
         "cmds": [
-          "mount vfat /dev/block/by-name/bluetooth /vendor/bt_firmware ro nosuid nodev shortname=lower,uid=0,gid=0,dmask=0222,fmask=0333"
+          "mount vfat /dev/block/by-name/bluetooth_a /vendor/bt_firmware ro nosuid nodev shortname=lower,uid=0,gid=0,dmask=0222,fmask=0333"
         ]
       }
     ]

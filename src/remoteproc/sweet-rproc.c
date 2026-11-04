@@ -203,6 +203,8 @@ static void mount_part(const char *name, const char *dir, const char *type, unsi
 	snprintf(dev, sizeof(dev), "/dev/block/by-name/%s", name);
 	for (int i = 0; i < 50 && access(dev, F_OK); i++)
 		usleep(100000);
+	if (access(dev, F_OK)) /* venus: A/B firmware partitions (modem_a, bluetooth_a...) */
+		snprintf(dev, sizeof(dev), "/dev/block/by-name/%s_a", name);
 	int r = mount(dev, dir, type, flags, opts);
 	klog("mount %s on %s (%s): %d (errno %d)", name, dir, type, r, r ? errno : 0);
 }
