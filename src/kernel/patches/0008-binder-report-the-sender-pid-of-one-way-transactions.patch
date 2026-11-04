@@ -1,15 +1,17 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
-Date: Wed, 4 Nov 2026 09:32:26 +0000
-Subject: [PATCH 08/13] binder: report the sender pid of one-way transactions 
+From: Claude <noreply@anthropic.com>
+Date: Mon, 19 Oct 2026 14:59:01 +0200
+Subject: [PATCH 08/13] binder: report the sender pid of one-way transactions
  (OpenHarmony)
 
 render_service and other OpenHarmony services check the calling pid of
 async (one-way) calls; Linux binder reports 0 for them, so e.g. form
 render service transactions were refused.
 
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
 
-Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
+Forward-ported from hmos2sweet 0009 (4.14) to sm8350 5.4 for venus.
 ---
  drivers/android/binder.c          | 8 ++++++--
  drivers/android/binder_internal.h | 4 ++++

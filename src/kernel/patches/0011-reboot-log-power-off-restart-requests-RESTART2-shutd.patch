@@ -1,10 +1,13 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
-Date: Wed, 4 Nov 2026 09:32:40 +0000
+From: Claude <noreply@anthropic.com>
+Date: Sat, 24 Oct 2026 18:49:29 +0200
 Subject: [PATCH 11/13] reboot: log power off/restart requests,
- RESTART2("shutdown")  powers off
+ RESTART2("shutdown") powers off
 
-Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuQqYfpHx6EWB2p
+
+Forward-ported from hmos2sweet 0018 (4.14) to sm8350 5.4 for venus.
 ---
  kernel/reboot.c | 8 ++++++++
  1 file changed, 8 insertions(+)

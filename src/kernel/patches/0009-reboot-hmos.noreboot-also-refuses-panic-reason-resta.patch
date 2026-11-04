@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 20 Oct 2026 06:37:32 +0200
+Subject: [PATCH 09/13] reboot: hmos.noreboot also refuses 'panic:<reason>'
+ restarts
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
+
+Forward-ported from hmos2sweet 0012 (4.14) to sm8350 5.4 for venus.
+---
+ kernel/reboot.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index a8783dd1b..ef0bf17c3 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -393,7 +393,7 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 		buffer[sizeof(buffer) - 1] = '\0';
+ 
+ #ifdef CONFIG_OHOS_BRINGUP_NOREBOOT
+-		if (hmos_noreboot && !strcmp(buffer, "panic")) {
++		if (hmos_noreboot && strstr(buffer, "panic")) {
+ 			pr_emerg("hmos: refusing reboot(\"panic\") from %s[%d] (hmos.noreboot=1)\n",
+ 				 current->comm, task_pid_nr(current));
+ 			ret = -EPERM;

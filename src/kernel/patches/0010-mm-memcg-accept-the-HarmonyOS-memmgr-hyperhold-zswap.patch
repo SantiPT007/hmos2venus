@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: hmos2sweet <hmos2sweet@localhost>
-Date: Wed, 4 Nov 2026 09:32:35 +0000
+Date: Fri, 23 Oct 2026 22:22:48 +0200
 Subject: [PATCH 10/13] mm: memcg: accept the HarmonyOS memmgr hyperhold/zswapd
  files
 
@@ -10,7 +10,7 @@ and every client waits ~1.2 s for it, which froze SceneBoard on each
 window occlusion change (opening and closing apps). Store the values,
 nothing acts on them.
 
-Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
+Forward-ported from hmos2sweet 0015 (4.14) to sm8350 5.4 for venus.
 ---
  include/linux/memcontrol.h |  6 +++
  mm/memcontrol.c            | 94 ++++++++++++++++++++++++++++++++++++++

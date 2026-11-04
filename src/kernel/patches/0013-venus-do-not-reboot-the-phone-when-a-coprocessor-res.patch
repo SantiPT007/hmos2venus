@@ -1,10 +1,16 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: hmos2sweet <hmos2sweet@localhost>
-Date: Wed, 4 Nov 2026 09:33:13 +0000
+Date: Tue, 20 Oct 2026 07:04:10 +0200
 Subject: [PATCH 13/13] venus: do not reboot the phone when a coprocessor
  restart fails
 
-Forward-ported from hmos2sweet 0013 to msm_subsystem_restart.c on sm8350 5.4; hmos_noreboot is exported because subsystem_restart can be a module.
+CONFIG_PANIC_ON_SSR_NOTIF_TIMEOUT panics after 20 s when a subsystem
+notifier blocks during a restart of the ADSP or the modem. On a port where
+userspace (sensors, WLAN, audio) is still being brought up these restarts
+happen and the panic reboots the phone. Turn it into a warning, and with
+hmos.noreboot=1 also log a crash during SSR instead of panicking.
+
+Forward-ported from hmos2sweet 0013 (4.14) to sm8350 5.4 for venus.
 ---
  arch/arm64/configs/vendor/ohos.config    |  5 ++++-
  drivers/soc/qcom/msm_subsystem_restart.c | 10 ++++++++++

@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alessio Dondoni <alessio.dondoni08@gmail.com>
-Date: Wed, 4 Nov 2026 09:31:31 +0000
+Date: Sun, 18 Oct 2026 17:44:33 +0200
 Subject: [PATCH 01/13] sweet: HarmonyOS (OpenHarmony 5.0.5) userspace bring-up
 
 - accesstokenid driver and task_struct token/ftoken (from OpenHarmony kernel_linux_5.10)
@@ -9,8 +9,10 @@ Subject: [PATCH 01/13] sweet: HarmonyOS (OpenHarmony 5.0.5) userspace bring-up
 - bring-up switches: hmos.noreboot=1 (reboot/sysrq panic), hmos.permissive=1
 - vendor/ohos.config: EROFS on, binderfs off so /dev/binder exists
 
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
 
-Forward-ported from hmos2sweet (4.14) to sm8350 5.4 for venus.
+Forward-ported from hmos2sweet 0001 (4.14) to sm8350 5.4 for venus.
 ---
  arch/arm64/configs/vendor/ohos.config  |  24 ++
  block/genhd.c                          |  20 ++

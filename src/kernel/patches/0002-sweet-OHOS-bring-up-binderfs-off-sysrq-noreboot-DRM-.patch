@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alessio Dondoni <alessio.dondoni08@gmail.com>
+Date: Sun, 18 Oct 2026 20:10:24 +0200
+Subject: [PATCH 02/13] sweet: OHOS bring-up: binderfs off, sysrq/noreboot, DRM
+ auth for display HALs
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
+
+Forward-ported from hmos2sweet 0002 (4.14) to sm8350 5.4 for venus.
+---
+ arch/arm64/configs/vendor/ohos.config | 2 ++
+ drivers/gpu/drm/drm_file.c            | 9 +++++++++
+ drivers/ohos/Kconfig                  | 5 +++++
+ 3 files changed, 16 insertions(+)
+
+diff --git a/arch/arm64/configs/vendor/ohos.config b/arch/arm64/configs/vendor/ohos.config
+index f3e850843..ba9abb166 100644
+--- a/arch/arm64/configs/vendor/ohos.config
++++ b/arch/arm64/configs/vendor/ohos.config
+@@ -22,3 +22,5 @@ CONFIG_OHOS_BRINGUP_PERMISSIVE=y
+ # OHOS init creates /dev/binder from uevents; binderfs would hide the misc devices
+ # CONFIG_ANDROID_BINDERFS is not set
+ CONFIG_ANDROID_BINDER_DEVICES="binder,hwbinder,vndbinder"
++# display HALs (allocator/composer/Mesa) share buffers on /dev/dri/card0
++CONFIG_OHOS_DRM_AUTH_ALL=y
+diff --git a/drivers/gpu/drm/drm_file.c b/drivers/gpu/drm/drm_file.c
+index f3095ffc1..1f7e769f8 100644
+--- a/drivers/gpu/drm/drm_file.c
++++ b/drivers/gpu/drm/drm_file.c
+@@ -131,6 +131,15 @@ struct drm_file *drm_file_alloc(struct drm_minor *minor)
+ 
+ 	/* for compatibility root is always authenticated */
+ 	file->authenticated = capable(CAP_SYS_ADMIN);
++#ifdef CONFIG_OHOS_DRM_AUTH_ALL
++	/*
++	 * HarmonyOS: the allocator host, the composer host and render_service
++	 * (Mesa kms_swrast) are separate non-root processes sharing buffers on the
++	 * primary node through PRIME; there is no Android-style authenticator, so
++	 * treat every client as authenticated.  KMS still requires DRM master.
++	 */
++	file->authenticated = 1;
++#endif
+ 
+ 	INIT_LIST_HEAD(&file->lhead);
+ 	INIT_LIST_HEAD(&file->fbs);
+diff --git a/drivers/ohos/Kconfig b/drivers/ohos/Kconfig
+index 721a15967..a77aa67e2 100644
+--- a/drivers/ohos/Kconfig
++++ b/drivers/ohos/Kconfig
+@@ -19,4 +19,9 @@ config OHOS_BRINGUP_PERMISSIVE
+ 	depends on SECURITY_SELINUX_DEVELOP
+ 	default n
+ 
++config OHOS_DRM_AUTH_ALL
++	bool "Treat every DRM client as authenticated (HarmonyOS display HALs)"
++	depends on DRM
++	default n
++
+ endmenu

@@ -1,9 +1,12 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: SantiPT007 <santiago.almendra.6g.23@gmail.com>
-Date: Wed, 4 Nov 2026 09:33:00 +0000
+From: Claude <noreply@anthropic.com>
+Date: Mon, 19 Oct 2026 14:41:24 +0200
 Subject: [PATCH 12/13] firmware: search the venus firmware partition and dsp
 
-Forward-ported from hmos2sweet 0008 (4.14 firmware_class.c) to firmware_loader/main.c on sm8350 5.4.
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
+
+Forward-ported from hmos2sweet 0008 (4.14) to sm8350 5.4 for venus.
 ---
  drivers/base/firmware_loader/main.c | 4 ++++
  1 file changed, 4 insertions(+)

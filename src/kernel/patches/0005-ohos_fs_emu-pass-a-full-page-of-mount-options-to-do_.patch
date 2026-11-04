@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 18 Oct 2026 21:43:12 +0200
+Subject: [PATCH 05/13] ohos_fs_emu: pass a full page of mount options to
+ do_mount
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013BnD2kisuqqyfphx6EWB2p
+
+Forward-ported from hmos2sweet 0005 (4.14) to sm8350 5.4 for venus.
+---
+ fs/namespace.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/fs/namespace.c b/fs/namespace.c
+index 6e750a587..e79bb8450 100644
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -3507,8 +3507,19 @@ static long ohos_fs_emu_mount(const char *dev, const char __user *udir,
+ 		goto out;
+ 	}
+ 
+-	ret = do_mount("hmdfs", (const char __user *)dir, "tmpfs",
+-		       flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC), "mode=0711");
++	{
++		/* do_mount() NUL-terminates data at PAGE_SIZE-1: needs a full page */
++		char *opts = (char *)get_zeroed_page(GFP_KERNEL);
++
++		if (!opts) {
++			ret = -ENOMEM;
++			goto out;
++		}
++		strlcpy(opts, "mode=0711", PAGE_SIZE);
++		ret = do_mount("hmdfs", (const char __user *)dir, "tmpfs",
++			       flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC), opts);
++		free_page((unsigned long)opts);
++	}
+ 	if (ret)
+ 		goto out;
+ 	snprintf(p, PATH_MAX, "%s/device_view", dir);
