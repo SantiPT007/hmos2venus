@@ -1001,11 +1001,50 @@ static void charger_mode(void)
  * /lib/modules with modules.load already in dependency order; the rest are
  * loaded by init from /vendor/lib/modules once /vendor is mounted.
  */
+/*
+ * The kernel does not hand "module.param=value" from the command line to
+ * loadable modules: Android's modprobe passes them at load time, so do the
+ * same (msm_drm.dsi_display0 is how the ABL tells the display driver which
+ * panel is fitted; without it the screen stays black).
+ */
+static void cmdline_params(const char *cmdline, const char *file, char *opts, size_t len)
+{
+	char mod[256];
+	size_t n = 0;
+
+	snprintf(mod, sizeof(mod), "%s", file);
+	char *dot = strstr(mod, ".ko");
+	if (dot)
+		*dot = 0;
+	for (char *c = mod; *c; c++)
+		if (*c == '-')
+			*c = '_';
+	size_t ml = strlen(mod);
+	opts[0] = 0;
+	for (const char *t = cmdline; *t; ) {
+		while (*t == ' ' || *t == '\n')
+			t++;
+		const char *e = t;
+		while (*e && *e != ' ' && *e != '\n')
+			e++;
+		if ((size_t)(e - t) > ml + 1 && !strncmp(t, mod, ml) && t[ml] == '.' &&
+		    n + (e - t - ml) + 1 < len)
+			n += snprintf(opts + n, len - n, "%s%.*s", n ? " " : "", (int)(e - t - ml - 1), t + ml + 1);
+		t = e;
+	}
+}
+
 static void load_modules(void)
 {
 	FILE *f = fopen("/lib/modules/modules.load", "re");
-	char name[256], path[320];
+	char name[256], path[320], opts[1024], cmdline[4096] = {0};
 	int ok = 0, bad = 0;
+	int cfd = open("/proc/cmdline", O_RDONLY | O_CLOEXEC);
+
+	if (cfd >= 0) {
+		read(cfd, cmdline, sizeof(cmdline) - 1);
+		close(cfd);
+	}
 
 	if (!f) {
 		klog("no /lib/modules/modules.load: no first-stage modules");
@@ -1016,8 +1055,11 @@ static void load_modules(void)
 		if (!name[0])
 			continue;
 		snprintf(path, sizeof(path), "/lib/modules/%s", name);
+		cmdline_params(cmdline, name, opts, sizeof(opts));
+		if (opts[0])
+			klog("module %s: %s", name, opts);
 		int fd = open(path, O_RDONLY | O_CLOEXEC);
-		if (fd < 0 || syscall(SYS_finit_module, fd, "", 0)) {
+		if (fd < 0 || syscall(SYS_finit_module, fd, opts, 0)) {
 			if (errno != EEXIST) {
 				klog("module %s: %s", name, strerror(errno));
 				bad++;
