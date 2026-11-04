@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fetchfw: pick a HarmonyOS firmware for the Huawei Pura 70, download it and port it with hmos2sweet.
+"""fetchfw: pick a HarmonyOS firmware for the Huawei Pura 70, download it and port it with hmos2venus.
 
   python3 fetchfw.py                       # list every package found, choose, download, port
   python3 fetchfw.py --offline             # only the catalog shipped with this copy
@@ -48,7 +48,7 @@ def gb(n):
 
 def main():
     a = parse_args()
-    print("fetchfw - HarmonyOS firmware for the Huawei Pura 70 -> hmos2sweet")
+    print("fetchfw - HarmonyOS firmware for the Huawei Pura 70 -> hmos2venus")
     cands = fetchfw.load_catalogs()
     cands += [{"url": u, "source": "command line"} for u in a.url]
     if not a.offline:
