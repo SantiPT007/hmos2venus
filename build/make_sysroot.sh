@@ -3,7 +3,7 @@
 #   * headers (musl, libc++ with _LIBCPP_ABI_NAMESPACE=__h, Linux UAPI, libdrm)
 #     and crt objects from build/sysroot-base.tar.xz (open source);
 #   * the HarmonyOS shared libraries to link against, copied from the OTA
-#     images extracted by hmos2sweet.py (<work>/ota/system.img, vendor.img).
+#     images extracted by hmos2venus.py (<work>/ota/system.img, vendor.img).
 # usage: build/make_sysroot.sh <hmos2sweet work folder>
 set -e
 . "$(dirname "$0")/env.sh"

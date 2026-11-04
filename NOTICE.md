@@ -2,7 +2,7 @@
 
 | Path | Origin | License |
 |---|---|---|
-| `hmos2sweet.py`, `fetchfw.py`, `lib/`, `patches/*/patch.json`, `patches/*/hook.py`, `tools/`, `build/*.sh`, `flash/` | this project | Apache-2.0 |
+| `hmos2venus.py`, `fetchfw.py`, `lib/`, `patches/*/patch.json`, `patches/*/hook.py`, `tools/`, `build/*.sh`, `flash/` | this project | Apache-2.0 |
 | `src/kernel/patches`, `prebuilt/kernel` | LineageOS android_kernel_xiaomi_sm6150 + this project's patches (parts from OpenHarmony kernel_linux_5.10) | GPL-2.0 |
 | `src/preinit`, `prebuilt/ramdisk/init`, `prebuilt/tools/lpwrite` | this project | GPL-2.0 |
 | `src/display`, `patches/10-display/files` | derived from OpenHarmony drivers_peripheral (display) | Apache-2.0 |
@@ -24,6 +24,6 @@
 | `build/sysroot-base.tar.xz` | musl (MIT), LLVM libc++ (Apache-2.0 with LLVM exception), Linux UAPI (GPL-2.0 WITH Linux-syscall-note), libdrm (MIT) | various |
 | `tools/bin` (downloaded) | sekaiacg/erofs-utils | GPL-2.0 / Apache-2.0 |
 
-No Huawei or Xiaomi image or library is included: `hmos2sweet.py` reads them from the packages the user
+No Huawei or Xiaomi image or library is included: `hmos2venus.py` reads them from the packages the user
 provides at conversion time, and `fetchfw.py` only downloads from Huawei's public update CDN on the user's
 request.

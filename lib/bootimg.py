@@ -1,4 +1,4 @@
-"""boot.img for sweet: LineageOS kernel + HarmonyOS ramdisk with hmos-preinit as /init.
+"""boot images for venus: LineageOS kernel + HarmonyOS ramdisk with hmos-preinit as /init.
 
 The OTA's ramdisk.img is a "HARMONY!" container around a gzip'd newc cpio.
 HarmonyOS keeps its real first-stage init at /bin/init_early; hmos-preinit is
@@ -106,3 +106,50 @@ def build_boot(kernel, ramdisk, dtb, cmdline, out, pagesize=4096, os_version=0x2
     with open(out, "wb") as o:
         o.write(pad(hdr) + pad(k) + pad(r) + pad(d))
     info("boot.img: kernel %d, ramdisk %d, dtb %d bytes" % (len(k), len(r), len(d)))
+
+
+def _entry(name, mode, data=b""):
+    return {"name": name, "mode": mode, "uid": 0, "gid": 0, "nlink": 2 if mode & 0o040000 else 1, "mtime": 0,
+            "rdevmajor": 0, "rdevminor": 0, "data": data}
+
+
+def vendor_ramdisk(modules, load_order):
+    """gzip'd cpio with /lib/modules/<name>.ko and /lib/modules/modules.load (hmos-preinit loads them in order)."""
+    entries = [_entry("lib", 0o040755), _entry("lib/modules", 0o040755),
+               _entry("lib/modules/modules.load", 0o100644, "".join(n + "\n" for n in load_order).encode())]
+    for n in load_order:
+        entries.append(_entry("lib/modules/" + n, 0o100644, open(modules[n], "rb").read()))
+    info("vendor ramdisk: %d first-stage modules" % len(load_order))
+    return gzip.compress(write_cpio(entries), 9, mtime=0)
+
+
+def _pad(b, page=4096):
+    return b + b"\0" * ((-len(b)) % page)
+
+
+def build_v3(kernel, ramdisk, vramdisk, dtb, cmdline, vendor_cmdline, outdir, os_version=0x1a000179):
+    """venus (Xiaomi ABL, boot header v3): boot.img (kernel + generic ramdisk) and vendor_boot.img
+    (vendor ramdisk + dtb), with the load addresses of the stock vendor_boot (base 0)."""
+    k = open(kernel, "rb").read()
+    d = open(dtb, "rb").read()
+    if len(cmdline) >= 1536 or len(vendor_cmdline) >= 2048:
+        die("kernel command line too long")
+    hdr = struct.pack("<8s4I4II1536s", b"ANDROID!", len(k), len(ramdisk), os_version, 1580, 0, 0, 0, 0, 3,
+                      cmdline.encode())
+    with open(os.path.join(outdir, "boot.img"), "wb") as o:
+        o.write(_pad(hdr) + _pad(k) + _pad(ramdisk))
+    vhdr = struct.pack("<8s5I2048sI16sIIQ", b"VNDRBOOT", 3, 4096, 0x8000, 0x01000000, len(vramdisk),
+                       vendor_cmdline.encode(), 0x100, b"", 2112, len(d), 0x01f00000)
+    with open(os.path.join(outdir, "vendor_boot.img"), "wb") as o:
+        o.write(_pad(vhdr) + _pad(vramdisk) + _pad(d))
+    info("boot.img: kernel %d, ramdisk %d; vendor_boot.img: ramdisk %d, dtb %d bytes" % (
+        len(k), len(ramdisk), len(vramdisk), len(d)))
+
+
+def empty_vbmeta(out):
+    """vbmeta with no descriptors and verification + verity disabled (flags 3), like
+    'avbtool make_vbmeta_image --flags 3': the ABL of an unlocked phone then boots the unsigned images."""
+    hdr = struct.pack(">4sIIQQI10QQII48s80s", b"AVB0", 1, 0, 0, 0, 0, *([0] * 10), 0, 3, 0, b"", b"")
+    assert len(hdr) == 256
+    with open(out, "wb") as o:
+        o.write(_pad(hdr))

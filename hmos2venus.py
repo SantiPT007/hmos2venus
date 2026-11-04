@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""hmos2sweet: turn a HarmonyOS full OTA package into a ROM for the Redmi Note 10 Pro (sweet).
+"""hmos2venus: turn a HarmonyOS full OTA package into a ROM for the Xiaomi Mi 11 (venus).
 
-  python3 hmos2sweet.py --ota update_full_base.zip --sweet-rom lineage-sweet.zip --out out/
+  python3 hmos2venus.py --ota update_full_base.zip --venus-rom venus_fastboot_rom.tgz --out out/
 
 Without --patches an interactive list lets you pick the patches. See README.md.
 """
@@ -20,10 +20,11 @@ VERSION = "1.0"
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description="HarmonyOS full OTA -> Redmi Note 10 Pro (sweet) ROM")
+    ap = argparse.ArgumentParser(description="HarmonyOS full OTA -> Xiaomi Mi 11 (venus) ROM")
     ap.add_argument("--ota", help="HarmonyOS full OTA package (update_full_base.zip or update.bin)")
-    ap.add_argument("--sweet-rom", help="a Redmi Note 10 Pro ROM zip (vendor.new.dat.br) or its vendor.img: "
-                                        "source of the firmware and audio configs")
+    ap.add_argument("--venus-rom", "--sweet-rom", dest="sweet_rom",
+                    help="a Mi 11 fastboot ROM (folder, .tgz or images/super.img*), a vendor.img, or a ROM zip: "
+                         "source of the firmware and audio configs")
     ap.add_argument("--out", default="out", help="output folder (default: out)")
     ap.add_argument("--work", help="work folder for extracted images (default: <out>/../work)")
     ap.add_argument("--patches", help="comma separated patch list instead of the menu: 'defaults', 'all', "
@@ -69,7 +70,7 @@ def main():
         print("--ota is required (see --help)")
         return 2
 
-    print("hmos2sweet %s - HarmonyOS -> Redmi Note 10 Pro (sweet)" % VERSION)
+    print("hmos2venus %s - HarmonyOS -> Xiaomi Mi 11 (venus)" % VERSION)
     for t in ("extract.erofs", "mkfs.erofs", "fsck.erofs", "dump.erofs", "debugfs"):
         tool(t)
 
@@ -106,15 +107,16 @@ def main():
     b.build_system()
     b.build_boot()
     b.copy_untouched()
+    supers = [n for n in builder.SUPER_PARTS if os.path.isfile(os.path.join(out, n + ".img"))]
+    b.build_super()
 
     step("Writing flash scripts")
-    supers = [n for n in builder.SUPER_PARTS if os.path.isfile(os.path.join(out, n + ".img"))]
-    summary = ["hmos2sweet %s" % VERSION, "OTA: %s (%s)" % (os.path.basename(a.ota), ota.version or "?"),
-               "sweet ROM: %s" % (os.path.basename(a.sweet_rom) if a.sweet_rom else "-"),
+    summary = ["hmos2venus %s" % VERSION, "OTA: %s (%s)" % (os.path.basename(a.ota), ota.version or "?"),
+               "venus ROM: %s" % (os.path.basename(a.sweet_rom) if a.sweet_rom else "-"),
                "built: %s" % time.strftime("%Y-%m-%d %H:%M"), "", "patches:"]
     summary += ["  [%s] %s - %s" % ("x" if p in chosen else " ", p.id, p.name) for p in all_patches]
-    summary += ["", "images: " + ", ".join(supers + ["boot", "dtbo"])]
-    flashgen.write(out, supers, "\n".join(summary) + "\n")
+    summary += ["", "super.img: " + ", ".join(supers), "also: boot, vendor_boot, dtbo, vbmeta"]
+    flashgen.write(out, "\n".join(summary) + "\n")
 
     from lib.util import rmtree
     if a.keep_work:
@@ -127,7 +129,7 @@ def main():
     step("Done in %d min: %s" % ((time.time() - t0) / 60, out))
     size = sum(os.path.getsize(os.path.join(out, f)) for f in os.listdir(out) if f.endswith(".img"))
     info("%s of images. First time on this phone: install_clean.bat / .sh (wipes data)." % human(size))
-    info("Already on hmos2sweet: update_keep_data.bat / .sh")
+    info("Already on hmos2venus: update_keep_data.bat / .sh")
     return 0
 
 

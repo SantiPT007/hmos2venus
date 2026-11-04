@@ -1,19 +1,62 @@
-"""Apply the selected patches to the OTA images and write the sweet ROM."""
+"""Apply the selected patches to the OTA images and write the venus ROM."""
 import importlib.util
 import json
 import os
 import shutil
 
-from . import bootimg, erofs, sweetrom
-from .util import REPO, step, info, warn, die, mkdirs, rmtree, human
+from . import bootimg, erofs, lpimg, sweetrom
+from .util import REPO, step, info, warn, die, mkdirs, rmtree, human, run, tool
 
 PREBUILT = os.path.join(REPO, "prebuilt")
 SUPER_PARTS = ["system", "vendor", "chip_prod", "sys_prod", "cust", "patch", "version", "preload"]
-CMDLINE = ("hardware=sweet default_boot_device=soc/1d84000.ufshc console=ttyMSM0,115200n8 "
-           "earlycon=msm_geni_serial,0x880000 service_locator.enable=1 lpm_levels.sleep_disabled=1 "
+# venus (Mi 11, SM8350) on the LineageOS 5.4 QGKI kernel: the stock vendor_boot command line plus the hmos.* options
+CMDLINE = ("hardware=venus default_boot_device=soc/1d84000.ufshc console=ttyMSM0,115200n8 "
            "loop.max_part=7 buildvariant=user enforcing=0 hmos.permissive=1 hmos.noreboot=1 "
            "printk.devkmsg=on audit=0 firmware_class.path=/vendor/firmware")
+VENDOR_CMDLINE = ("androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 "
+                  "service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 "
+                  "cgroup.memory=nokmem,nosocket pcie_ports=compat iptable_raw.raw_before_defrag=1 "
+                  "ip6table_raw.raw_before_defrag=1")
+KERNEL = os.path.join(PREBUILT, "kernel-venus")
+# first-stage modules (LineageOS venus BOOT_KERNEL_MODULES): loaded by hmos-preinit from the vendor ramdisk
+BOOT_MODULES = ["adsp_loader_dlkm.ko", "apr_dlkm.ko", "fts_touch_spi.ko", "hwid.ko", "mmhardware_sysfs_dlkm.ko",
+                "msm_drm.ko", "q6_notifier_dlkm.ko", "q6_pdr_dlkm.ko", "qti_battery_charger_main.ko",
+                "snd_event_dlkm.ko", "xiaomi_touch.ko"]
+# the GPT super partition of venus (BOARD_SUPER_PARTITION_SIZE)
+SUPER_SIZE = 9126805504
 INIT_CFG = "etc/init/hmos2sweet.cfg"
+
+
+def _modname(f):
+    return os.path.basename(f)[:-3].replace("-", "_")
+
+
+def _depends(path):
+    """Dependencies from a module's .modinfo ("depends=a,b"), as module names."""
+    data = open(path, "rb").read()
+    i = data.find(b"\0depends=")
+    if i < 0:
+        return []
+    dep = data[i + 9:data.index(b"\0", i + 9)].decode()
+    return [d.replace("-", "_") for d in dep.split(",") if d]
+
+
+def module_order(moddir, wanted):
+    """File names of 'wanted' (plus what they depend on) with every dependency before its users."""
+    files = {_modname(f): f for f in os.listdir(moddir) if f.endswith(".ko")}
+    order, seen = [], set()
+
+    def visit(name):
+        if name in seen or name not in files:
+            return
+        seen.add(name)
+        for d in _depends(os.path.join(moddir, files[name])):
+            visit(d)
+        order.append(files[name])
+
+    for w in wanted:
+        visit(_modname(w))
+    return order
 
 
 class Context:
@@ -85,9 +128,9 @@ class Build:
             blobs += p["sweet_blobs"] or []
         if not blobs:
             return
-        step("Collecting firmware and audio configs from the sweet ROM")
+        step("Collecting firmware and audio configs from the venus ROM")
         if not self.sweet_rom:
-            die("the selected patches need files from a Redmi Note 10 Pro ROM: pass --sweet-rom")
+            die("the selected patches need files from a Mi 11 ROM: pass --venus-rom")
         img = sweetrom.vendor_image(self.sweet_rom, self.work)
         sweetrom.check_vendor(img)
         rmtree(self.blobs_dir)
@@ -104,6 +147,7 @@ class Build:
         for p in self.patches:
             info("[%s] %s" % (p.id, p.name))
             self._apply_patch(p, init, ueventd)
+        self._add_modules(init)
         self._write_init(init)
         self._write_ueventd(ueventd)
         return self.vendor.build(os.path.join(self.out, "vendor.img"))
@@ -201,13 +245,47 @@ class Build:
         return self._system.build(os.path.join(self.out, "system.img"))
 
     # -------------------------------------------------------------- boot
+    def _modules(self):
+        d = os.path.join(KERNEL, "modules")
+        if not os.path.isdir(d):
+            die("%s missing: build the kernel first (build/build_kernel.sh)" % d)
+        return d
+
+    def _add_modules(self, init):
+        """The second-stage modules go to /vendor/lib/modules; init loads them in dependency order in pre-init,
+        when /vendor (and its firmware) is mounted, like Android loads vendor_dlkm."""
+        d = self._modules()
+        first = set(module_order(d, BOOT_MODULES))
+        rest = [f for f in module_order(d, sorted(os.listdir(d))) if f not in first]
+        self.vendor.add_dir("lib/modules", "0755")
+        for f in rest:
+            self.vendor.add_file(os.path.join(d, f), "lib/modules/" + f, "0644")
+        init["jobs"].insert(0, {"name": "pre-init", "cmds": ["insmod /vendor/lib/modules/" + f for f in rest]})
+        info("%d kernel modules in /vendor/lib/modules" % len(rest))
+
     def build_boot(self):
-        step("Building boot.img")
+        step("Building boot.img, vendor_boot.img, dtbo.img, vbmeta.img")
         rd = bootimg.build_ramdisk(self.images["ramdisk"], os.path.join(PREBUILT, "ramdisk", "init"))
-        k = os.path.join(PREBUILT, "kernel")
-        bootimg.build_boot(os.path.join(k, "Image.gz"), rd, os.path.join(k, "xiaomi-sdmmagpie.dtb"), CMDLINE,
-                           os.path.join(self.out, "boot.img"))
-        shutil.copyfile(os.path.join(k, "dtbo.img"), os.path.join(self.out, "dtbo.img"))
+        d = self._modules()
+        order = module_order(d, BOOT_MODULES)
+        vrd = bootimg.vendor_ramdisk({f: os.path.join(d, f) for f in order}, order)
+        bootimg.build_v3(os.path.join(KERNEL, "Image"), rd, vrd, os.path.join(KERNEL, "venus.dtb"), CMDLINE,
+                         VENDOR_CMDLINE, self.out)
+        shutil.copyfile(os.path.join(KERNEL, "dtbo.img"), os.path.join(self.out, "dtbo.img"))
+        bootimg.empty_vbmeta(os.path.join(self.out, "vbmeta.img"))
+
+    def build_super(self):
+        """All logical partitions in one super image, flashed from the bootloader (lib/lpimg.py)."""
+        step("Building super.img")
+        parts = [(n, os.path.join(self.out, n + ".img"), True) for n in SUPER_PARTS
+                 if os.path.isfile(os.path.join(self.out, n + ".img"))]
+        raw = os.path.join(self.work, "super.raw")
+        lpimg.build(raw, SUPER_SIZE, parts)
+        run([tool("img2simg"), raw, os.path.join(self.out, "super.img")])
+        os.unlink(raw)
+        for n, path, _ in parts:
+            os.unlink(path)
+        info("super.img %s (sparse)" % human(os.path.getsize(os.path.join(self.out, "super.img"))))
 
     # ------------------------------------------------------------ others
     def copy_untouched(self):

@@ -5,7 +5,7 @@
   python3 fetchfw.py --offline             # only the catalog shipped with this copy
   python3 fetchfw.py --url <package URL>   # add a package you found (folder, filelist.xml or .zip URL)
   python3 fetchfw.py --list                # only list
-  python3 fetchfw.py -- --sweet-rom lineage-sweet.zip --patches defaults   # arguments for hmos2sweet.py
+  python3 fetchfw.py -- --sweet-rom lineage-sweet.zip --patches defaults   # arguments for hmos2venus.py
 
 Only full packages of the Pura 70 (device model ADY-*) are accepted: each candidate is checked online
 (filelist.xml and the package headers, read with range requests) before it is offered.
@@ -34,7 +34,7 @@ def parse_args():
     ap.add_argument("--list", action="store_true", help="list the verified packages and exit")
     ap.add_argument("--choose", type=int, help="pick package N without asking")
     ap.add_argument("--dest", default="firmware", help="download folder (default: firmware)")
-    ap.add_argument("--download-only", action="store_true", help="do not start hmos2sweet.py afterwards")
+    ap.add_argument("--download-only", action="store_true", help="do not start hmos2venus.py afterwards")
     ap.add_argument("--no-verify", action="store_true",
                     help="trust the catalog entries without checking them online (faster)")
     a = ap.parse_args(argv)
@@ -141,7 +141,7 @@ def main():
         s = input("Redmi Note 10 Pro ROM zip (or vendor.img) for the sweet firmware blobs [Enter = skip]: ").strip()
         if s:
             rest += ["--sweet-rom", s.strip('"')]
-    cmd = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "hmos2sweet.py"),
+    cmd = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "hmos2venus.py"),
            "--ota", path] + rest
     print("running: %s" % " ".join(cmd))
     return subprocess.call(cmd)
