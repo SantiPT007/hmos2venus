@@ -7,7 +7,7 @@
   "description": "QCA6390 on PCIe: the cnss2 + qcacld (wlan.ko) host driver downloads amss.bin, m3.bin and the board data (bdwlan) from the modem partition (mounted in pre-init before the modules load) and creates wlan0, which HarmonyOS's WiFi HDI uses directly. EXPERIMENTAL: keep 'Remove setup wizard' on until WiFi is confirmed working.",
   "sweet_blobs": [
     {
-      "from": "firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini",
+      "from": "etc/wifi/qca6390/WCNSS_qcom_cfg.ini",
       "to": "firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini"
     }
   ],
