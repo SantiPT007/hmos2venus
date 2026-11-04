@@ -1,5 +1,5 @@
 /*
- * hmos-preinit: first process on the Redmi Note 10 Pro (sweet) when booting
+ * hmos-preinit: first process on the Xiaomi Mi 11 (venus) when booting
  * the HarmonyOS 5.x userspace.
  *
  *  1. mounts proc/sysfs/devtmpfs temporarily
@@ -770,14 +770,15 @@ static void hilog_stream_tick(void)
 static void start_logger(void)
 {
 	char dev[64], path[128];
-	if (find_part("cache", dev, sizeof(dev))) {
-		klog("no cache partition, persistent log disabled");
+	/* venus has no cache partition: the log lives on userdata (HarmonyOS /data, f2fs) */
+	if (find_part("userdata", dev, sizeof(dev)) && find_part("cache", dev, sizeof(dev))) {
+		klog("no userdata/cache partition, persistent log disabled");
 		return;
 	}
 	mkdir("/hmoslog", 0700);
 	if (mount(dev, "/hmoslog", "ext4", MS_NOATIME | MS_NOSUID | MS_NODEV, NULL) &&
 	    mount(dev, "/hmoslog", "f2fs", MS_NOATIME | MS_NOSUID | MS_NODEV, NULL)) {
-		klog("mount cache failed: %s", strerror(errno));
+		klog("mount %s for the log failed: %s", dev, strerror(errno));
 		return;
 	}
 	mkdir("/hmoslog/hmos", 0700);
@@ -817,7 +818,7 @@ static void start_logger(void)
 		klog("logger open failed");
 		return;
 	}
-	klog("persistent log: cache:/hmos/kmsg-%d.log", idx);
+	klog("persistent log: %s:/hmos/kmsg-%d.log", dev, idx);
 	/* per-boot directory for the diagnostics snapshots */
 	char sdir[128];
 	snprintf(sdir, sizeof(sdir), "/hmoslog/hmos/boot-%d", idx);
@@ -993,6 +994,44 @@ static void charger_mode(void)
 	}
 }
 
+/* ---------------- first-stage kernel modules ---------------- */
+/*
+ * The QGKI kernel keeps the display, touch, battery and ADSP loader drivers in
+ * modules (LineageOS BOOT_KERNEL_MODULES). The vendor ramdisk carries them in
+ * /lib/modules with modules.load already in dependency order; the rest are
+ * loaded by init from /vendor/lib/modules once /vendor is mounted.
+ */
+static void load_modules(void)
+{
+	FILE *f = fopen("/lib/modules/modules.load", "re");
+	char name[256], path[320];
+	int ok = 0, bad = 0;
+
+	if (!f) {
+		klog("no /lib/modules/modules.load: no first-stage modules");
+		return;
+	}
+	while (fgets(name, sizeof(name), f)) {
+		name[strcspn(name, "\r\n")] = 0;
+		if (!name[0])
+			continue;
+		snprintf(path, sizeof(path), "/lib/modules/%s", name);
+		int fd = open(path, O_RDONLY | O_CLOEXEC);
+		if (fd < 0 || syscall(SYS_finit_module, fd, "", 0)) {
+			if (errno != EEXIST) {
+				klog("module %s: %s", name, strerror(errno));
+				bad++;
+			}
+		} else {
+			ok++;
+		}
+		if (fd >= 0)
+			close(fd);
+	}
+	fclose(f);
+	klog("first-stage modules: %d loaded, %d failed", ok, bad);
+}
+
 int main(int argc, char **argv)
 {
 	(void)argc;
@@ -1003,7 +1042,9 @@ int main(int argc, char **argv)
 	mount("sysfs", "/sys", "sysfs", 0, NULL);
 	mount("devtmpfs", "/dev", "devtmpfs", 0, "mode=0755");
 	kfd = open("/dev/kmsg", O_WRONLY | O_CLOEXEC);
-	klog("starting (HarmonyOS userspace on sweet, stage 1)");
+	klog("starting (HarmonyOS userspace on venus, stage 1)");
+
+	load_modules();
 
 	/* devtmpfs needs a moment for UFS partitions on some boots */
 	char tmp[64];

@@ -2,11 +2,11 @@
   "name": "Core: kernel, preinit, fstab",
   "required": true,
   "default": true,
-  "description": "LineageOS 4.14 sm6150 kernel with the OpenHarmony patches, hmos-preinit as /init (maps the super partition, kernel log to the cache partition), second-stage fstab for sweet. Always installed.",
+  "description": "LineageOS 5.4 sm8350 (QGKI) kernel with the OpenHarmony patches, hmos-preinit as /init (loads the first-stage kernel modules, maps the super partition, kernel log on userdata), second-stage fstab for venus. Always installed.",
   "vendor_files": [
     {
-      "src": "files/etc/fstab.sweet",
-      "dst": "etc/fstab.sweet",
+      "src": "files/etc/fstab.venus",
+      "dst": "etc/fstab.venus",
       "mode": "0644",
       "uid": 0,
       "gid": 0

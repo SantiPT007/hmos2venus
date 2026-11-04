@@ -1,8 +1,9 @@
-# fstab for HarmonyOS userspace on Redmi Note 10 Pro (sweet) - second stage
+# fstab for HarmonyOS userspace on Xiaomi Mi 11 (venus) - second stage
 # system/vendor/sys_prod/chip_prod/cust/patch are mounted in the first stage by
 # hmos-preinit (dm-linear over the "super" partition, /etc/fstab.required).
+# venus has no cache partition: hmos-preinit keeps its log in /hmos on userdata.
+# The firmware partitions are A/B; the flash scripts boot slot a.
 # <src>                                       <mnt_point>  <type>  <mnt_flags and options>                                   <fs_mgr_flags>
 /dev/block/by-name/userdata                   /data        f2fs    noatime,nosuid,nodev,discard,reserve_root=32768,resgid=1065  wait,check,nofail
 /dev/block/by-name/misc                       /misc        none    none                                                      wait,nofail
-/dev/block/by-name/cache                      /log         ext4    rw,nosuid,nodev,noatime                                   wait,nofail
-/dev/block/by-name/dsp                        /vendor/dsp  ext4    ro,nosuid,nodev,barrier=1                                 wait,nofail
+/dev/block/by-name/dsp_a                      /vendor/dsp  ext4    ro,nosuid,nodev,barrier=1                                 wait,nofail

@@ -1,9 +1,10 @@
-"""Get the Redmi Note 10 Pro (sweet) vendor blobs the port needs.
+"""Get the Mi 11 (venus) vendor blobs the port needs.
 
 Accepted sources:
-  * a flashable sweet ROM zip with block images (vendor.new.dat.br or
-    vendor.new.dat + vendor.transfer.list), e.g. LineageOS or most custom ROMs;
-  * a raw ext4 vendor.img dumped from a sweet ROM.
+  * a MIUI/HyperOS fastboot ROM: its folder, its images/ folder or a super.img (sparse chunks
+    super.img.0, .1, ... are joined); vendor (vendor_a) is taken from the super image;
+  * a flashable ROM zip with block images (vendor.new.dat.br or vendor.new.dat + vendor.transfer.list);
+  * a raw vendor.img (EROFS or ext4).
 
 Only firmware and audio configuration files are taken (list in each patch's
 "sweet_blobs"); they stay on your computer and are never part of the repo.
@@ -74,24 +75,63 @@ def _sdat2img(transfer_list, new_dat, out_img):
                     left -= len(chunk)
 
 
+def _from_super(source, workdir):
+    """vendor.img out of a fastboot ROM's super image (sparse chunks are joined by simg2img)."""
+    d = source
+    if os.path.isdir(os.path.join(d, "images")):
+        d = os.path.join(d, "images")
+    if os.path.isdir(d):
+        chunks = sorted((f for f in os.listdir(d) if re.match(r"super\.img(\.\d+)?$", f)),
+                        key=lambda f: int(f.rsplit(".", 1)[1]) if f[-1].isdigit() else -1)
+        if not chunks:
+            die("no super.img in %s: pass the fastboot ROM folder or a vendor.img" % source)
+        chunks = [os.path.join(d, f) for f in chunks]
+    else:
+        chunks = [source]
+    raw = os.path.join(workdir, "venus_super.raw")
+    info("unpacking super (%d chunk%s)" % (len(chunks), "s" if len(chunks) > 1 else ""))
+    if open(chunks[0], "rb").read(4) == b"\x3a\xff\x26\xed":  # sparse
+        run([tool("simg2img")] + chunks + [raw])
+    else:
+        raw = chunks[0]
+    tmp = mkdirs(os.path.join(workdir, "venus_super"))
+    for name in ("vendor_a", "vendor"):
+        p = subprocess.run([tool("lpunpack"), "-p", name, raw, tmp], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if p.returncode == 0:
+            break
+    else:
+        die("no vendor partition in the super image")
+    if raw != chunks[0]:
+        os.remove(raw)
+    return os.path.join(tmp, name + ".img")
+
+
 def vendor_image(source, workdir):
-    """Return the path of an ext4 sweet vendor image built from 'source'."""
+    """Return the path of a venus vendor image (EROFS or ext4) built from 'source'."""
     if not os.path.exists(source):
-        die("sweet ROM not found: %s" % source)
+        die("venus ROM not found: %s" % source)
+    out = os.path.join(workdir, "venus_vendor.img")
+    if os.path.isfile(out):
+        info("venus vendor image already unpacked")
+        return out
+    if os.path.isdir(source) or re.search(r"super\.img(\.\d+)?$", source):
+        os.replace(_from_super(source, workdir), out)
+        shutil.rmtree(os.path.join(workdir, "venus_super"), ignore_errors=True)
+        return out
     if not zipfile.is_zipfile(source):
         return source  # raw vendor.img
-    out = os.path.join(workdir, "sweet_vendor.img")
+    out = os.path.join(workdir, "venus_vendor.img")
     if os.path.isfile(out):
-        info("sweet vendor image already unpacked")
+        info("venus vendor image already unpacked")
         return out
     z = zipfile.ZipFile(source)
     names = z.namelist()
     if "vendor.transfer.list" not in names:
         if "payload.bin" in names:
             die("payload.bin ROMs are not supported yet: extract vendor.img with "
-                "payload-dumper and pass it with --sweet-rom vendor.img")
+                "payload-dumper and pass it with --venus-rom vendor.img")
         die("%s has no vendor.transfer.list / vendor.new.dat(.br)" % source)
-    tmp = mkdirs(os.path.join(workdir, "sweet_rom"))
+    tmp = mkdirs(os.path.join(workdir, "venus_rom"))
     z.extract("vendor.transfer.list", tmp)
     tl = os.path.join(tmp, "vendor.transfer.list")
     if "vendor.new.dat.br" in names:
@@ -117,14 +157,64 @@ def _debugfs(img, cmd):
     return p.stdout.decode(errors="replace"), p.stderr.decode(errors="replace")
 
 
+def _is_erofs(img):
+    with open(img, "rb") as f:
+        f.seek(1024)
+        return f.read(4) == b"\xe2\xe1\xf5\xe0"
+
+
+def _erofs_tree(img):
+    """EROFS vendor extracted once next to the image; returns its root."""
+    root = img + ".tree"
+    if not os.path.isdir(root):
+        tmp = mkdirs(root + ".tmp")
+        run([tool("extract.erofs"), "-i", img, "-x", "-o", tmp, "-s", "-f", "-T4"])
+        sub = [d for d in os.listdir(tmp) if d != "config" and os.path.isdir(os.path.join(tmp, d))]
+        if len(sub) != 1:
+            die("extract.erofs failed for %s" % img)
+        os.replace(os.path.join(tmp, sub[0]), root)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return root
+
+
 def check_vendor(img):
+    if _is_erofs(img):
+        if not os.path.isfile(os.path.join(_erofs_tree(img), "firmware", "a660_sqe.fw")):
+            die("%s does not look like a venus vendor image (no /firmware/a660_sqe.fw)" % img)
+        return
     out, err = _debugfs(img, "ls -p /firmware")
-    if "a630_sqe.fw" not in out:
-        die("%s does not look like a sweet vendor image (no /firmware/a630_sqe.fw)\n%s" % (img, err[-500:]))
+    if "a660_sqe.fw" not in out:
+        die("%s does not look like a venus vendor image (no /firmware/a660_sqe.fw)\n%s" % (img, err[-500:]))
+
+
+def _fetch_tree(root, blobs, outdir):
+    got = []
+    for b in blobs:
+        src, dst = os.path.join(root, b["from"].rstrip("/")), os.path.join(outdir, b["to"])
+        if b["from"].endswith("/"):
+            if not os.path.isdir(src):
+                die("blob directory /%s not found in the venus vendor image" % b["from"])
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+            got += [os.path.join(b["to"], f) for f in os.listdir(src)]
+            continue
+        for _ in range(4):  # follow (vendor-relative) symlinks
+            if not os.path.islink(src):
+                break
+            tgt = os.readlink(src)
+            src = os.path.join(root, tgt[len("/vendor/"):]) if tgt.startswith("/vendor/") else \
+                os.path.normpath(os.path.join(os.path.dirname(src), tgt))
+        if not os.path.isfile(src):
+            die("blob /%s not found in the venus vendor image" % b["from"])
+        mkdirs(os.path.dirname(dst))
+        shutil.copyfile(src, dst)
+        got.append(b["to"])
+    return got
 
 
 def fetch(img, blobs, outdir):
     """Copy blobs ([{"from": "firmware/x", "to": "firmware/x"}], trailing / = directory)."""
+    if _is_erofs(img):
+        return _fetch_tree(_erofs_tree(img), blobs, outdir)
     got = []
     for b in blobs:
         src, dst = b["from"], os.path.join(outdir, b["to"])
@@ -138,7 +228,7 @@ def fetch(img, blobs, outdir):
             _debugfs(img, "rdump /%s %s" % (src.rstrip("/"), tmp))
             name = os.path.basename(src.rstrip("/"))
             if not os.path.isdir(os.path.join(tmp, name)):
-                die("blob directory /%s not found in the sweet vendor image" % src)
+                die("blob directory /%s not found in the venus vendor image" % src)
             for f in sorted(os.listdir(os.path.join(tmp, name))):
                 shutil.move(os.path.join(tmp, name, f), os.path.join(dst, f))
                 got.append(os.path.join(b["to"], f))
@@ -156,6 +246,6 @@ def fetch(img, blobs, outdir):
                     os.path.normpath(os.path.join(os.path.dirname(path), tgt))
             _debugfs(img, "dump %s %s" % (path, dst))
             if not os.path.isfile(dst) or os.path.getsize(dst) == 0:
-                die("blob /%s not found in the sweet vendor image" % src)
+                die("blob /%s not found in the venus vendor image" % src)
             got.append(b["to"])
     return got
