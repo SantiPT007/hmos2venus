@@ -13,7 +13,8 @@ SUPER_PARTS = ["system", "vendor", "chip_prod", "sys_prod", "cust", "patch", "ve
 CMDLINE = ("hardware=venus default_boot_device=soc/1d84000.ufshc console=ttyMSM0,115200n8 "
            "loop.max_part=7 buildvariant=user enforcing=0 hmos.permissive=1 hmos.noreboot=1 "
            "printk.devkmsg=on audit=0 firmware_class.path=/vendor/firmware")
-VENDOR_CMDLINE = ("androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 "
+# no androidboot.hardware=qcom: it overrides hardware=venus and init then looks for fstab.qcom (no /data)
+VENDOR_CMDLINE = ("androidboot.memcg=1 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 "
                   "service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 "
                   "cgroup.memory=nokmem,nosocket pcie_ports=compat iptable_raw.raw_before_defrag=1 "
                   "ip6table_raw.raw_before_defrag=1")
