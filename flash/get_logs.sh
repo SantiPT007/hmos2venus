@@ -1,10 +1,10 @@
 #!/bin/sh
-# Pull the hmos2sweet boot logs while the phone is in recovery (TWRP/OrangeFox, adb enabled).
+# Pull the hmos2venus boot logs while the phone is in recovery (TWRP/OrangeFox, adb enabled).
 DEST="$(dirname "$0")/logs_$(date +%Y%m%d_%H%M)"
 mkdir -p "$DEST"
 adb wait-for-recovery
-# 1) kernel log, hilog snapshots and screenshots kept by hmos-preinit on the cache partition
-adb shell "mkdir -p /tmp/c && (mount -t ext4 /dev/block/by-name/cache /tmp/c 2>/dev/null || mount /dev/block/bootdevice/by-name/cache /tmp/c)"
+# 1) kernel log, hilog snapshots and screenshots kept by hmos-preinit in /hmos on userdata (venus has no cache)
+adb shell "mkdir -p /tmp/c && (mount -t f2fs /dev/block/by-name/userdata /tmp/c 2>/dev/null || mount -t f2fs /dev/block/bootdevice/by-name/userdata /tmp/c)"
 adb pull /tmp/c/hmos "$DEST"
 adb shell "rm -f /tmp/c/hmos/boot_inflight /tmp/c/hmos/PREVIOUS_BOOT_CRASHED; umount /tmp/c"
 # 2) pstore (last kernel console before a reboot)

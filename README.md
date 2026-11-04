@@ -1,65 +1,46 @@
-# hmos2sweet
+# hmos2venus
 
-**HarmonyOS 5 (OpenHarmony) for the Redmi Note 10 Pro (sweet).**
+**HarmonyOS 5 (OpenHarmony) for the Xiaomi Mi 11 (venus).**
 
-`hmos2sweet` takes a **HarmonyOS full OTA package** (`update_full_base.zip`) and turns it into a ROM you can flash
-on the Redmi Note 10 Pro. The userspace stays Huawei's. What changes is underneath it:
+A port of [hmos2sweet](https://github.com/tsryzenstech/hmos2sweet) (Redmi Note 10 Pro) to the Mi 11. It takes a
+**HarmonyOS full OTA package** (`update_full_base.zip`) and turns it into a ROM you can flash on venus. The
+userspace stays Huawei's. What changes is underneath it:
 
-- a LineageOS 4.14 (sm6150) kernel with the patches OpenHarmony needs;
-- a set of **selectable patches** that replace the Kirin drivers with Snapdragon 732G equivalents: display, GPU,
-  audio, coprocessors, telephony and more.
+- the LineageOS 5.4 QGKI kernel for sm8350 with the OpenHarmony patches forward-ported from hmos2sweet;
+- a set of **selectable patches** that replace the Kirin drivers with Snapdragon 888 equivalents.
 
-> Experimental project. No Huawei or Xiaomi image is included in this repository: the script takes them from
-> the packages you provide. Use the resulting ROM for personal use only.
+> Experimental and **not yet booted on hardware**. No Huawei or Xiaomi image is included in this repository:
+> the script takes them from the packages you provide. Use the resulting ROM for personal use only.
 
 ## Status
 
 | Feature | Status |
 |---|---|
-| Boot, boot animation, SceneBoard, launcher, setup wizard | ✅ |
-| Display 1080x2400 at 120 Hz (DRM/KMS), brightness, screen off/on | ✅ |
-| GPU Adreno 618 (Mesa freedreno, OpenGL ES) | ✅ |
-| Touch, volume/power keys | ✅ |
-| WiFi, Bluetooth, GPS, audio | ✅ (reported working on the device) |
-| Lock screen, PIN/password | 🟡 OpenHarmony's REE user_auth/pin_auth without TEE (fixed in iter42: vtable mismatch with HarmonyOS's HDI) |
-| Sensors for apps (accelerometer, gyroscope, compass, light, gravity/rotation) | 🟡 HAL on the Snapdragon Sensor Core over QRTR/QMI |
-| Battery, charging, off-mode charging | 🟡 standard HarmonyOS HAL on sweet's power_supply; with a charger plugged in "power off" keeps the phone off and charging |
-| Vibration | 🟡 aw8624 exposed as /sys/class/leds/vibrator (timed vibration; no haptic effects) |
-| Telephony: SIM, network, calls, SMS, mobile data | 🟡 our own RIL library on the Qualcomm modem over QMI/QRTR (untested without a SIM) |
-| Call forwarding, call waiting, call barring, CLIP/CLIR, USSD | 🟡 QMI VOICE supplementary services (untested) |
-| VoLTE / VoLTE-only calls | 🟡 attempt: IMS settings, IMS PDN, PS-only voice domain (untested) |
-| NFC | 🟡 NXP PN553 driven by Huawei's NXP HAL + /sys/nfc from the kernel (untested) |
-| IR blaster | 🟡 IR LED through ir-spi (/dev/lirc0) |
-| Thermal | 🟡 real sweet sensors, own policy |
-| USB (hdc, file transfer) | 🟡 configfs gadget for the Snapdragon controller |
-| Camera | 🧪 first test build (patch 47): sweet's Android camera HAL (CamX) in an isolated Android environment + an OpenHarmony camera host |
-| Fingerprint, proximity sensor | 🔴 not yet (need Qualcomm's Android/TEE blobs) |
-
-Tested with: Huawei Pura 70 HarmonyOS 5.1 full OTA (`ADY-LGRP3-CHN 205.1.0.128(SP5)`, `update_full_base.zip`).
-Other HarmonyOS 5.x versions of the Pura 70 should convert as well: the patches that edit system files check what
-they find and skip the step if the file is not the expected one.
+| Kernel: LineageOS sm8350 5.4 + OpenHarmony patches (access token, binder, DRM auth, hmdfs/sharefs emulation, fs-verity stub, memcg, no-reboot) | ✅ builds |
+| Boot chain: header v3 boot + vendor_boot, all lahaina dtbs, dtbo, empty vbmeta, super with LP metadata | ✅ images verified with AOSP unpack_bootimg / lpdump |
+| First-stage modules (display, touch, battery, ADSP loader) from the vendor ramdisk, the rest from /vendor/lib/modules | 🧪 untested on the phone |
+| Display 1440x3200 (msm_drm, DSI), GPU Adreno 660 (Mesa freedreno on kgsl) | 🧪 untested |
+| WiFi QCA6390 (cnss2 + qcacld, firmware from modem_a), modem/ADSP bring-up, RIL, GPS, sensors, USB, thermal | 🧪 untested |
+| Audio (cs35l41 + wcd938x), Bluetooth (QCA6390), haptics (aw8697), NFC, camera | 🔴 off: not ported yet |
+| Fingerprint | 🔴 not yet |
 
 ## Requirements
 
-- **Linux** (or **WSL** on Windows) with Python 3.8+, `e2fsprogs` (`debugfs`), `unzip`, `curl`.
-  `pip install brotli`, or the `brotli` command, if the sweet ROM uses `vendor.new.dat.br`.
-- About **25 GB free**: extracted images, temporary trees and output.
-- A **HarmonyOS full OTA** of the Huawei Pura 70 (`update_full_base.zip`, the one with `update.bin` inside).
-  `fetchfw` (below) can find and download one for you.
-- **A ROM for the Redmi Note 10 Pro** with block images (`vendor.new.dat.br` + `vendor.transfer.list`, e.g.
-  LineageOS), or an extracted `vendor.img`. It provides sweet's GPU, IPA, audio amplifier, WiFi and camera
-  firmware and its audio mixer paths.
-- A phone with an **unlocked bootloader**, `fastboot` and `adb` (platform-tools) in PATH, and a recovery
-  (TWRP/OrangeFox) to read the logs.
+- **Linux** with Python 3.8+, `simg2img`, `img2simg`, `lpunpack`, `e2fsprogs` (`debugfs`), `unzip`, `curl`.
+- About **40 GB free**: extracted images, the unpacked venus super, temporary trees and output.
+- A **HarmonyOS full OTA** of the Huawei Pura 70 (`update_full_base.zip`). `fetchfw` (below) can find one.
+- **A Mi 11 fastboot ROM** (MIUI/HyperOS, the folder with `images/super.img.*`), or an extracted venus
+  `vendor.img`: it provides the Adreno 660, IPA, WiFi and sensor firmware.
+- A Mi 11 with an **unlocked bootloader** and `fastboot` in PATH.
 
 ## Getting the firmware: fetchfw
 
 `fetchfw` looks for every HarmonyOS package available for the **Huawei Pura 70**, shows the list, downloads
-the one you pick (resumable, sha256-checked) and then starts `hmos2sweet.py` on it:
+the one you pick (resumable, sha256-checked) and then starts `hmos2venus.py` on it:
 
 ```sh
 python3 fetchfw.py                                        # search, choose, download, port
-python3 fetchfw.py -- --sweet-rom ~/lineage-sweet.zip --patches defaults
+python3 fetchfw.py -- --venus-rom ~/venus_fastboot_rom --patches defaults
 python3 fetchfw.py --list                                 # only list
 python3 fetchfw.py --url <package URL>                    # check and add a package you found
 python3 fetchfw.py --offline                              # only the catalogs on this computer
@@ -83,96 +64,42 @@ packages of other phones are skipped. To share a new Pura 70 package with everyb
 ## Usage
 
 ```sh
-git clone https://github.com/tsryzenstech/hmos2sweet && cd hmos2sweet
+git clone https://github.com/SantiPT007/hmos2venus && cd hmos2venus
 tools/fetch_tools.sh                     # downloads the EROFS tools into tools/bin
-python3 hmos2sweet.py --ota ~/update_full_base.zip --sweet-rom ~/lineage-sweet.zip --out out
+python3 hmos2venus.py --ota ~/update_full_base.zip --venus-rom ~/venus_fastboot_rom --out out
 ```
 
-The patch list opens:
-
-```
-  Patches to apply  (number = toggle, a = all, n = none, d = defaults,
-                     i<number> = details, Enter = continue, q = quit)
-
-     [=] Core: kernel, preinit, fstab
-   1 [x] Display: DRM/KMS composer + buffer allocator
-   2 [x] GPU: Mesa freedreno (Adreno 618) for OpenGL ES
-   ...
-```
-
-- a number (or several, separated by spaces) toggles a patch;
-- `a` enables everything, `n` disables everything, `d` goes back to the defaults;
-- `i3` shows the description of patch 3;
-- Enter continues.
-
-Dependencies are handled automatically: enabling audio also enables "Modem/ADSP bring-up", disabling the
-latter also disables audio and WiFi.
-
-Without the menu (scripts, CI):
-
-```sh
-python3 hmos2sweet.py --ota OTA.zip --sweet-rom ROM.zip --patches defaults            # defaults
-python3 hmos2sweet.py --ota OTA.zip --sweet-rom ROM.zip --patches all,-60             # all but debug-tools
-python3 hmos2sweet.py --ota OTA.zip --sweet-rom ROM.zip --patches defaults --no-setup-wizard
-python3 hmos2sweet.py --list                                                          # patch list
-```
-
-### Setup wizard
-
-HarmonyOS's first-boot setup needs a WiFi connection. WiFi works on sweet, so the wizard is kept by default.
-If you cannot get through it, enable the **"Remove the setup wizard"** patch (or pass `--no-setup-wizard`):
-
-- it removes `HwStartupGuide` from `system.img` (the original files are saved in `out/removed/`);
-- it marks the first boot as completed in the settings database (`device_provisioned`, `user_setup_complete`).
+The patch menu and the `--patches` / `--list` options are the same as in hmos2sweet
+(`--patches defaults`, `--patches all,-60`, `--no-setup-wizard`).
 
 ## Installation
 
-The output folder contains:
+The output folder contains `super.img` (all HarmonyOS logical partitions with LP metadata), `boot.img`,
+`vendor_boot.img`, `dtbo.img`, `vbmeta.img` (verification off) and the scripts:
 
 | File | |
 |---|---|
-| `system.img`, `vendor.img`, `chip_prod.img`, `sys_prod.img`, `cust.img`, `patch.img` | logical partitions (in `super`) |
-| `boot.img`, `dtbo.img` | kernel + HarmonyOS ramdisk with `hmos-preinit` |
-| `install_clean.bat` / `.sh` | **first install**: wipes Android and ALL data, creates the HarmonyOS partitions |
-| `update_keep_data.bat` / `.sh` | update from a previous hmos2sweet build, **data is kept** |
-| `get_logs.bat` / `.sh` | from recovery: copies the kernel log, hilog and boot screenshots |
-| `BUILD_INFO.txt` | OTA version and patches used |
-| `removed/` | files taken out of the images (setup wizard) |
+| `install_clean.bat` / `.sh` | **first install**: flashes everything from the bootloader and formats userdata |
+| `update_keep_data.bat` / `.sh` | update from a previous hmos2venus build, **data is kept** |
+| `get_logs.bat` / `.sh` | from a recovery: copies the kernel log and hilog snapshots that hmos-preinit keeps in `/hmos` on userdata |
 
 1. Phone in fastboot (Power + Volume down).
-2. `install_clean.bat` (Windows) or `./install_clean.sh` (Linux). It asks you to type `YES`.
+2. `install_clean.bat` (Windows) or `./install_clean.sh` (Linux). It checks the phone is a venus and asks for `YES`.
 3. The first boot takes a few minutes.
 
-To go back to Android, flash a sweet ROM again from recovery: the ROM recreates `super`.
-
-### Power off and charging
-
-With a charger or a PC connected, "power off" makes the PMIC start the phone again in charging mode
-(`androidboot.mode=charger`). `hmos-preinit` recognises it and does not start HarmonyOS: the screen stays off
-and the phone keeps charging. Unplugging the cable powers it off; holding the power key for 1.5 s boots
-HarmonyOS.
-
-### Logs
-
-The ramdisk contains `hmos-preinit`, which saves to the `cache` partition on every boot:
-
-- the kernel log;
-- snapshots of hilog, processes, threads and services;
-- a screenshot.
-
-To read them: boot the recovery (Power + Volume up), then run `get_logs.bat` / `get_logs.sh`. See
-[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+The scripts only write `super`, `boot_a/b`, `vendor_boot_a/b`, `dtbo_a/b`, `vbmeta*_a/b` and `userdata`. They never
+touch `xbl`, `abl`, `tz`, `persist` or `modemst`. To go back to Android, flash the Mi 11 fastboot ROM.
 
 ## Repository layout
 
 ```
-hmos2sweet.py          converter (patch menu, OTA extraction, image build, flash scripts)
-fetchfw.py             finds/downloads Pura 70 firmware and runs hmos2sweet.py (lib/fetchfw.py)
-lib/                   Python modules: Huawei OTA, EROFS, boot.img, sweet ROM, patches, scripts, fetchfw
+hmos2venus.py          converter (patch menu, OTA extraction, image build, flash scripts)
+fetchfw.py             finds/downloads Pura 70 firmware and runs hmos2venus.py (lib/fetchfw.py)
+lib/                   Python modules: Huawei OTA, EROFS, boot images, super (lpimg), venus ROM, patches, scripts, fetchfw
 patches/NN-name/       one folder per patch: patch.json (+ hook.py) + files/ with the binaries
-prebuilt/              kernel (Image.gz, dtb, dtbo.img) and hmos-preinit
+prebuilt/              kernel-venus (Image, dtbs, dtbo.img, modules) and hmos-preinit
 src/                   sources of everything in patches/ and prebuilt/
-  kernel/patches/        patches on LineageOS android_kernel_xiaomi_sm6150 (lineage-24.0)
+  kernel/patches/        patches on LineageOS android_kernel_xiaomi_sm8350 (lineage-23.2, 5.4 QGKI)
   preinit/               hmos-preinit (/init: maps super, logs, charger mode, then HarmonyOS /bin/init_early)
   display/               DRM/KMS composer + dma-buf allocator (OpenHarmony VDI)
   mesa/                  Mesa 26.1 patches: OHOS EGL platform, YUV import
@@ -203,5 +130,5 @@ The scripts in this repository are Apache-2.0. The individual parts have differe
 - tinyalsa and linux-msm: BSD-3-Clause;
 - sqlite: public domain.
 
-Details are in [NOTICE.md](NOTICE.md). HarmonyOS, Huawei, Xiaomi and Redmi are trademarks of their respective
+Details are in [NOTICE.md](NOTICE.md). HarmonyOS, Huawei and Xiaomi are trademarks of their respective
 owners. This project is not affiliated with any of them.
